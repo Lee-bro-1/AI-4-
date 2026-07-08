@@ -628,6 +628,10 @@
                   <strong>데이터</strong>
                   <span>평일 / 토요일 / 일요일 분리 적용</span>
                 </div>
+                <div class="route-line">
+                  <strong>배차</strong>
+                  <span>평일 10분 / 토요일·일요일 20분</span>
+                </div>
               </div>
             </aside>
           </div>
@@ -648,10 +652,14 @@
                   <span class="field-label">시간 선택</span>
                   <select class="field-input" id="hourInput"></select>
                 </label>
+                <label class="field">
+                  <span class="field-label">다음 버스 도착까지 남은 시간(분)</span>
+                  <input class="field-input" id="arrivalInput" type="number" min="0" step="1" placeholder="네이버 지도에서 확인" />
+                </label>
                 <button class="pill-btn primary" id="predictBtn" type="button">혼잡도 보기</button>
               </div>
               <p class="helper" style="margin-top: 1.6rem;">
-                선택한 날짜가 평일이면 평일 데이터를, 토요일이면 토요일 데이터를, 일요일이면 일요일 데이터를 사용합니다.
+                네이버 지도에서 본 7800번의 남은 도착 시간을 같이 넣으면, 다음 버스를 탈 수 있는지 여부를 `가능 / 어려움`으로 나누고 대기 시간도 그 결과에 따라 딱 두 가지로 표시합니다.
               </p>
             </section>
 
@@ -668,7 +676,15 @@
                     <div class="value" id="capacityValue">-</div>
                   </div>
                   <div class="status-box">
-                    <div class="label">오늘 구분</div>
+                    <div class="label">다음 버스까지</div>
+                    <div class="value" id="arrivalValue">-</div>
+                  </div>
+                  <div class="status-box">
+                    <div class="label">탑승 판정</div>
+                    <div class="value" id="boardingValue">-</div>
+                  </div>
+                  <div class="status-box">
+                    <div class="label">예상 대기 시간</div>
                     <div class="value" id="waitTimeValue">-</div>
                   </div>
                 </div>
@@ -1010,9 +1026,12 @@
     ];
     const hourInput = document.getElementById("hourInput");
     const dateInput = document.getElementById("dateInput");
+    const arrivalInput = document.getElementById("arrivalInput");
     const predictBtn = document.getElementById("predictBtn");
     const predictedPassengersEl = document.getElementById("predictedPassengers");
     const capacityValueEl = document.getElementById("capacityValue");
+    const arrivalValueEl = document.getElementById("arrivalValue");
+    const boardingValueEl = document.getElementById("boardingValue");
     const waitTimeValueEl = document.getElementById("waitTimeValue");
     const todayDateLabelEl = document.getElementById("todayDateLabel");
     const todayTypeLabelEl = document.getElementById("todayTypeLabel");
@@ -1057,6 +1076,48 @@
       return weekdaySources;
     }
 
+    function getHeadwayMinutesForDayType(dayType) {
+      return dayType === "평일" ? 10 : 20;
+    }
+
+    function parseArrivalMinutes() {
+      const minutes = Number(arrivalInput.value);
+      return Number.isFinite(minutes) && minutes >= 0 ? minutes : null;
+    }
+
+    function estimateWaitPlan(congestionRatio, dayType, arrivalMinutes) {
+      if (!Number.isFinite(congestionRatio) || !Number.isFinite(arrivalMinutes)) return null;
+      const headwayMinutes = getHeadwayMinutesForDayType(dayType);
+      const crowdPressureMinutes = headwayMinutes * Math.max(0, congestionRatio - 100) / 100;
+      const boardingChance = arrivalMinutes / (arrivalMinutes + crowdPressureMinutes + 1);
+      const canBoardNextBus = boardingChance >= 0.5;
+      const waitMinutes = canBoardNextBus ? arrivalMinutes : arrivalMinutes + headwayMinutes;
+
+      return {
+        canBoardNextBus,
+        boardingChance,
+        waitMinutes,
+        headwayMinutes,
+        crowdPressureMinutes
+      };
+    }
+
+    function formatWaitMinutes(minutes) {
+      if (!Number.isFinite(minutes)) return "데이터 없음";
+      if (minutes <= 0) return "추가 대기 없음";
+      return `${Math.round(minutes)}분`;
+    }
+
+    function formatArrivalMinutes(minutes) {
+      if (!Number.isFinite(minutes)) return "데이터 없음";
+      return `${Math.round(minutes)}분`;
+    }
+
+    function formatBoardingValue(plan) {
+      if (!plan) return "데이터 없음";
+      return plan.canBoardNextBus ? "가능" : "어려움";
+    }
+
     function populateHourOptions() {
       hourInput.innerHTML = "";
       hourOrder.forEach((hour) => {
@@ -1072,16 +1133,20 @@
       const selectedDate = dateInput.value;
       const dayType = getDayTypeForDate(selectedDate);
       const activeSources = getSourcesForDayType(dayType);
+      const arrivalMinutes = parseArrivalMinutes();
       const normalizedValues = activeSources.map((source) => {
         const value = getValueByHour(source, selectedHour);
         if (!Number.isFinite(value)) return null;
         return source.unit === "명" ? (value / 70) * 100 : value;
       }).filter((value) => Number.isFinite(value));
       const congestionRatio = normalizedValues.length > 0 ? normalizedValues.reduce((sum, value) => sum + value, 0) / normalizedValues.length : null;
+      const waitPlan = estimateWaitPlan(congestionRatio, dayType, arrivalMinutes);
 
       predictedPassengersEl.textContent = congestionRatio === null ? "데이터 없음" : `${formatNumber(congestionRatio)}%`;
       capacityValueEl.textContent = formatHour(selectedHour);
-      waitTimeValueEl.textContent = dayType;
+      arrivalValueEl.textContent = formatArrivalMinutes(arrivalMinutes);
+      boardingValueEl.textContent = formatBoardingValue(waitPlan);
+      waitTimeValueEl.textContent = waitPlan ? formatWaitMinutes(waitPlan.waitMinutes) : "데이터 없음";
       todayDateLabelEl.textContent = selectedDate || formatDateLabel(new Date());
       todayTypeLabelEl.textContent = dayType;
     }
@@ -1090,8 +1155,11 @@
       populateHourOptions();
       dateInput.value = formatDateLabel(new Date());
       hourInput.value = "18";
+      arrivalInput.value = "0";
       dateInput.addEventListener("change", predict);
       hourInput.addEventListener("change", predict);
+      arrivalInput.addEventListener("change", predict);
+      arrivalInput.addEventListener("input", predict);
       predictBtn.addEventListener("click", predict);
       predict();
     }
