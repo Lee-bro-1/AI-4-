@@ -1198,7 +1198,7 @@
         <div class="container">
           <div class="naver-map-card">
             <h2 class="section-title">네이버 지도</h2>
-            <p>7800 버스 노선 페이지를 네이버 지도 앱으로 바로 열어볼 수 있어요.</p>
+            <p>사당역9번출구앞을 네이버 지도 앱으로 바로 열어볼 수 있어요.</p>
             <div class="naver-map-actions">
               <a class="pill-btn primary" id="naverMapAppLink" href="#" target="_self" rel="noreferrer">네이버 지도 앱 열기</a>
               <a class="pill-btn outline-dark" id="naverMapWebLink" href="#" target="_blank" rel="noreferrer">웹으로 보기</a>
@@ -1542,7 +1542,8 @@
     const BUS_API_PROXY_ENDPOINT = "https://api.allorigins.win/raw?url=";
     const BUS_ROUTE_ID = "200000150";
     const BUS_ROUTE_NAME = "7800";
-    const NAVER_MAP_ROUTE_URL = "https://map.naver.com/p/entry/bus-route/9596?c=16.00,0,0,0,dh";
+    const NAVER_MAP_ROUTE_URL = "nmap://search?query=%EC%82%AC%EB%8B%B9%EC%97%AD9%EB%B2%88%EC%B6%9C%EA%B5%AC%EC%95%9E";
+    const NAVER_MAP_WEB_URL = "https://map.naver.com/v5/search/%EC%82%AC%EB%8B%B9%EC%97%AD9%EB%B2%88%EC%B6%9C%EA%B5%AC%EC%95%9E";
     const TARGET_STATION_NAME = "사당역9번출구앞";
     const TARGET_STATION_SEQ = 43;
     const STATION_NAME_OVERRIDES = new Map([
@@ -1717,7 +1718,7 @@
         naverMapAppLinkEl.href = NAVER_MAP_ROUTE_URL;
       }
       if (naverMapWebLinkEl) {
-        naverMapWebLinkEl.href = NAVER_MAP_ROUTE_URL;
+        naverMapWebLinkEl.href = NAVER_MAP_WEB_URL;
       }
     }
 
