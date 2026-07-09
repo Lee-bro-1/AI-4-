@@ -1618,6 +1618,7 @@
     const BUS_API_PROXY_ENDPOINT = "https://api.allorigins.win/raw?url=";
     const SUPABASE_URL = "https://xrkwmablhbkabshimnbc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhya3dtYWJsaGJrYWJzaGltbmJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NTE4MjgsImV4cCI6MjA5OTEyNzgyOH0.cntRe_bjcS40XYhCiVQmNDeK7oWHXsJzA_ua4GbMuc8";
+    const SUPABASE_FEEDBACK_TABLE = "feedback";
     const BUS_ROUTE_ID = "200000150";
     const BUS_ROUTE_NAME = "7800";
     const NAVER_MAP_ROUTE_URL = "https://map.naver.com/p/entry/bus-route/9596?c=16.00,0,0,0,dh";
@@ -2139,10 +2140,11 @@
       }
 
       try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/feedback`, {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_FEEDBACK_TABLE}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Accept": "application/json",
             "apikey": SUPABASE_ANON_KEY,
             "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
             "Prefer": "return=minimal"
@@ -2152,7 +2154,14 @@
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
+          let parsedError = errorText;
+          try {
+            const parsed = JSON.parse(errorText);
+            parsedError = parsed?.message || parsed?.error || parsedError;
+          } catch (_parseError) {
+            // Keep raw text when the response is not JSON.
+          }
+          throw new Error(`HTTP ${response.status}: ${parsedError}`);
         }
 
         feedbackInputEl.value = "";
@@ -2161,7 +2170,7 @@
         }
       } catch (error) {
         if (feedbackStatusEl) {
-          feedbackStatusEl.textContent = "저장 실패. Supabase 테이블과 RLS 정책을 확인해 주세요.";
+          feedbackStatusEl.textContent = `저장 실패: ${String(error.message || error).slice(0, 80)}`;
         }
         console.error("Feedback save failed:", error);
       } finally {
