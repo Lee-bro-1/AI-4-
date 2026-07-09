@@ -773,6 +773,65 @@
       flex-wrap: wrap;
     }
 
+    .feedback-card {
+      display: grid;
+      gap: 1rem;
+      padding: 1.4rem 1.6rem;
+      border-radius: 1.6rem;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .feedback-card .section-title {
+      margin-bottom: 0.2rem;
+      font-size: 1.8rem;
+    }
+
+    .feedback-note {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--text-soft);
+    }
+
+    .feedback-form {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .feedback-input {
+      width: 100%;
+      min-height: 8.4rem;
+      resize: vertical;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 1.2rem;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--text);
+      padding: 1rem 1.1rem;
+      font: inherit;
+      font-size: 1.4rem;
+      line-height: 1.5;
+      outline: none;
+    }
+
+    .feedback-input:focus {
+      border-color: rgba(0, 98, 65, 0.25);
+      box-shadow: 0 0 0 0.3rem rgba(0, 98, 65, 0.08);
+    }
+
+    .feedback-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .feedback-status {
+      font-size: 1.2rem;
+      color: var(--text-soft);
+    }
+
     .result-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1206,6 +1265,24 @@
         </div>
       </section>
 
+      <section class="section" id="feedback">
+        <div class="container">
+          <div class="feedback-card">
+            <div>
+              <h2 class="section-title">피드백</h2>
+              <p class="feedback-note">짧게 남기면 저장돼요.</p>
+            </div>
+            <div class="feedback-form">
+              <textarea class="feedback-input" id="feedbackInput" placeholder="불편한 점이나 바꾸고 싶은 부분을 적어주세요."></textarea>
+              <div class="feedback-actions">
+                <span class="feedback-status" id="feedbackStatus">이 기기에서만 저장됩니다.</span>
+                <button class="pill-btn primary" type="button" id="feedbackSaveBtn">저장</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
   </main>
   </div>
 
@@ -1571,6 +1648,9 @@
     const busRefreshBtn = document.getElementById("busRefreshBtn");
     const busSyncStatusEl = document.getElementById("busSyncStatus");
     const naverMapAppLinkEl = document.getElementById("naverMapAppLink");
+    const feedbackInputEl = document.getElementById("feedbackInput");
+    const feedbackSaveBtnEl = document.getElementById("feedbackSaveBtn");
+    const feedbackStatusEl = document.getElementById("feedbackStatus");
     let lastBusUpdatedAt = null;
     let lastTrackedBuses = { currentBus: null, nextBus: null, thirdBus: null, buses: [] };
     let busRefreshPromise = null;
@@ -2037,6 +2117,26 @@
       statusTimeLabelEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
     }
 
+    function loadSavedFeedback() {
+      if (!feedbackInputEl) return;
+      const saved = localStorage.getItem("bus-app-feedback");
+      if (saved) {
+        feedbackInputEl.value = saved;
+        if (feedbackStatusEl) {
+          feedbackStatusEl.textContent = "마지막 메모가 불러와졌어요.";
+        }
+      }
+    }
+
+    function saveFeedback() {
+      if (!feedbackInputEl) return;
+      const value = feedbackInputEl.value.trim();
+      localStorage.setItem("bus-app-feedback", value);
+      if (feedbackStatusEl) {
+        feedbackStatusEl.textContent = value ? "저장 완료" : "메모를 비웠어요.";
+      }
+    }
+
     function predict() {
       const now = new Date();
       const selectedHour = now.getHours();
@@ -2065,6 +2165,7 @@
       arrivalInput.value = "";
       refreshCurrentMinutes();
       refreshStatusTime();
+      loadSavedFeedback();
       setupNaverMapLinks();
       renderBusMap(null, null, null);
       setBusSyncStatus("실시간 연동 대기 중");
@@ -2073,6 +2174,9 @@
       setInterval(refreshStatusTime, 1000);
       if (busRefreshBtn) {
         busRefreshBtn.addEventListener("click", refreshBusLocation);
+      }
+      if (feedbackSaveBtnEl) {
+        feedbackSaveBtnEl.addEventListener("click", saveFeedback);
       }
       refreshBusLocation();
       setInterval(refreshBusLocation, AUTO_REFRESH_MS);
