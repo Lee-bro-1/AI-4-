@@ -1303,7 +1303,7 @@
                     <button class="hint-toggle" type="button" id="congestionHintBtn" aria-expanded="false" aria-controls="congestionHintText">설명</button>
                   </div>
                     <div class="value" id="predictedPassengers">-</div>
-                    <div class="status-hint" id="congestionHintText" hidden>혼잡도 56%라면 정원 100명 기준으로 56명이 탄 상태, 즉 약 44석이 남아 있다고 보고 계산해요. 여기에 남은 시간이 길수록 바로 직전에 버스가 지나간 것으로 해석해서 탑승 가능성을 더 높게 반영합니다.</div>
+                    <div class="status-hint" id="congestionHintText" hidden>혼잡도 56%라면 정원 100명 기준으로 56명이 탄 상태, 즉 약 44석이 남아 있다고 보고 계산해요. 여기에 남은 시간이 길수록 바로 직전에 버스가 지나간 것으로 해석해서 탑승 가능성이 자연스럽게 올라가도록 반영합니다.</div>
                   </div>
                   <div class="status-box">
                   <div class="label">남은 시간</div>
@@ -1783,10 +1783,11 @@
         const occupiedRatio = clamp(congestionRatio, 0, 100);
         const remainingSeatRatio = clamp(100 - occupiedRatio, 0, 100);
         const seatOpportunity = remainingSeatRatio / 100;
-        const timingChance = Number.isFinite(arrivalMinutes)
+        const timeOpportunity = Number.isFinite(arrivalMinutes)
           ? clamp(arrivalMinutes / headwayMinutes, 0, 1)
           : 0.5;
-        const boardingProbability = clamp(((seatOpportunity * 0.75) + (timingChance * 0.25)) * 100, 0, 100);
+        const boardingBase = Math.sqrt(seatOpportunity * timeOpportunity);
+        const boardingProbability = clamp(boardingBase * 100, 0, 100);
         const boardingPressure = 1 - (boardingProbability / 100);
         const canBoardNextBus = boardingProbability >= 55;
 
@@ -1797,7 +1798,7 @@
           occupiedRatio,
           remainingSeatRatio,
           seatOpportunity,
-          timingChance,
+          timeOpportunity,
           headwayMinutes
         };
       }
