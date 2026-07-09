@@ -1120,11 +1120,26 @@
 
       return Array.from(doc.querySelectorAll("busarrivallist")).map((item) => ({
         routeId: getTagText(item, "routeid"),
+        routeNo: getTagText(item, "routeno"),
         predictTime1: getTagText(item, "predicttime1"),
         predictTime2: getTagText(item, "predicttime2"),
         remainSeatCnt1: getTagText(item, "remainseatcnt1"),
         remainSeatCnt2: getTagText(item, "remainseatcnt2")
       }));
+    }
+
+    function isValidMinutes(value) {
+      return Number.isFinite(value) && value >= 0;
+    }
+
+    function pickArrivalItem(items) {
+      if (!Array.isArray(items) || items.length === 0) return null;
+
+      const exactMatch = items.find((item) => item.routeId === DEFAULT_ROUTE_ID || item.routeNo === "7800");
+      if (exactMatch) return exactMatch;
+
+      const usableItem = items.find((item) => isValidMinutes(Number(item.predictTime1)));
+      return usableItem || items[0];
     }
 
     async function loadArrivalMinutes() {
@@ -1139,11 +1154,15 @@
 
       const xmlText = await response.text();
       const items = parseArrivalItems(xmlText);
-      const matched = items.find((item) => item.routeId === DEFAULT_ROUTE_ID);
+      const matched = pickArrivalItem(items);
       const minutes = matched ? Number(matched.predictTime1) : null;
 
-      arrivalInput.value = Number.isFinite(minutes) && minutes >= 0 ? String(Math.round(minutes)) : "";
-      return matched;
+      if (isValidMinutes(minutes)) {
+        arrivalInput.value = String(Math.round(minutes));
+        return matched;
+      }
+
+      return null;
     }
 
     function formatWaitMinutes(minutes) {
@@ -1206,7 +1225,7 @@
         try {
           await loadArrivalMinutes();
         } catch (error) {
-          arrivalInput.value = "";
+          // Keep the last known arrival time if the API blips.
         }
         predict();
       });
@@ -1218,7 +1237,6 @@
         loadArrivalMinutes()
           .then(() => predict())
           .catch(() => {
-            arrivalInput.value = "";
             predict();
           });
       }, AUTO_REFRESH_MS);
