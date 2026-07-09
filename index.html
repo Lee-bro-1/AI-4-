@@ -1024,7 +1024,10 @@
         ]
       }
     ];
-    const API_URL = "https://apis.data.go.kr/6410000/busarrivalservice/getBusArrivalList";
+    const API_URLS = [
+      "https://apis.data.go.kr/6410000/busArrivalService/getBusArrivalList",
+      "https://apis.data.go.kr/6410000/busarrivalservice/getBusArrivalList"
+    ];
     const DEFAULT_SERVICE_KEY = "2d0fddd3308e996bd79b456ddc2620af89000344f60102774ef36c085ccad06a";
     const DEFAULT_STATION_ID = "119000302";
     const DEFAULT_ROUTE_ID = "200000150";
@@ -1048,6 +1051,10 @@
 
     function formatHour(hour) {
       return `${pad(hour)}:00`;
+    }
+
+    function getCurrentHour() {
+      return new Date().getHours();
     }
 
     function formatNumber(value) {
@@ -1109,7 +1116,9 @@
     }
 
     function getTagText(root, tagName) {
-      return root.querySelector(tagName)?.textContent?.trim() || "";
+      const lowerTagName = String(tagName).toLowerCase();
+      const match = Array.from(root.children).find((node) => node.tagName.toLowerCase() === lowerTagName);
+      return match?.textContent?.trim() || "";
     }
 
     function parseArrivalItems(xmlText) {
@@ -1118,13 +1127,24 @@
         throw new Error("실시간 API 응답을 읽지 못했습니다.");
       }
 
-      return Array.from(doc.querySelectorAll("busarrivallist")).map((item) => ({
-        routeId: getTagText(item, "routeid"),
-        routeNo: getTagText(item, "routeno"),
-        predictTime1: getTagText(item, "predicttime1"),
-        predictTime2: getTagText(item, "predicttime2"),
-        remainSeatCnt1: getTagText(item, "remainseatcnt1"),
-        remainSeatCnt2: getTagText(item, "remainseatcnt2")
+      const itemNodes = Array.from(doc.getElementsByTagName("*")).filter((node) => {
+        const hasArrivalField = Array.from(node.children).some((child) => {
+          const tagName = child.tagName.toLowerCase();
+          return tagName === "predicttime1" || tagName === "predicttime2" || tagName === "routeid" || tagName === "routeno";
+        });
+        if (hasArrivalField) return true;
+
+        const tagName = node.tagName.toLowerCase();
+        return tagName === "busarrivallist" || tagName === "busarrivelist" || tagName === "item" || tagName === "busarrivallistitem";
+      });
+
+      return itemNodes.map((item) => ({
+        routeId: getTagText(item, "routeid") || getTagText(item, "routeId"),
+        routeNo: getTagText(item, "routeno") || getTagText(item, "routeNo"),
+        predictTime1: getTagText(item, "predicttime1") || getTagText(item, "predictTime1"),
+        predictTime2: getTagText(item, "predicttime2") || getTagText(item, "predictTime2"),
+        remainSeatCnt1: getTagText(item, "remainseatcnt1") || getTagText(item, "remainSeatCnt1"),
+        remainSeatCnt2: getTagText(item, "remainseatcnt2") || getTagText(item, "remainSeatCnt2")
       }));
     }
 
@@ -1143,26 +1163,47 @@
     }
 
     async function loadArrivalMinutes() {
-      const url = new URL(API_URL);
-      url.searchParams.set("serviceKey", DEFAULT_SERVICE_KEY);
-      url.searchParams.set("stationId", DEFAULT_STATION_ID);
+      const requestVariants = [
+        { stationId: DEFAULT_STATION_ID, routeId: DEFAULT_ROUTE_ID },
+        { stationId: DEFAULT_STATION_ID, busRouteId: DEFAULT_ROUTE_ID },
+        { arsId: DEFAULT_STATION_ID, routeId: DEFAULT_ROUTE_ID },
+        { arsId: DEFAULT_STATION_ID, busRouteId: DEFAULT_ROUTE_ID },
+        { stationId: DEFAULT_STATION_ID },
+        { arsId: DEFAULT_STATION_ID }
+      ];
 
-      const response = await fetch(url.toString());
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      for (const apiUrl of API_URLS) {
+        for (const params of requestVariants) {
+          const url = new URL(apiUrl);
+          url.searchParams.set("serviceKey", decodeURIComponent(DEFAULT_SERVICE_KEY));
+          url.searchParams.set("pageNo", "1");
+          url.searchParams.set("numOfRows", "10");
+          url.searchParams.set("resultType", "xml");
+
+          Object.entries(params).forEach(([key, value]) => {
+            url.searchParams.set(key, value);
+          });
+
+          try {
+            const response = await fetch(url.toString());
+            if (!response.ok) continue;
+
+            const xmlText = await response.text();
+            const items = parseArrivalItems(xmlText);
+            const matched = pickArrivalItem(items);
+            const minutes = matched ? Number(matched.predictTime1) : null;
+
+            if (isValidMinutes(minutes)) {
+              arrivalInput.value = String(Math.round(minutes));
+              return matched;
+            }
+          } catch (error) {
+            // Try the next endpoint or parameter shape.
+          }
+        }
       }
 
-      const xmlText = await response.text();
-      const items = parseArrivalItems(xmlText);
-      const matched = pickArrivalItem(items);
-      const minutes = matched ? Number(matched.predictTime1) : null;
-
-      if (isValidMinutes(minutes)) {
-        arrivalInput.value = String(Math.round(minutes));
-        return matched;
-      }
-
-      return null;
+      throw new Error("실시간 버스 도착정보를 받아오지 못했습니다.");
     }
 
     function formatWaitMinutes(minutes) {
@@ -1217,7 +1258,7 @@
     function initialize() {
       populateHourOptions();
       dateInput.value = formatDateLabel(new Date());
-      hourInput.value = "18";
+      hourInput.value = String(getCurrentHour());
       arrivalInput.value = "";
       dateInput.addEventListener("change", predict);
       hourInput.addEventListener("change", predict);
