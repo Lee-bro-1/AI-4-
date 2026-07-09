@@ -428,6 +428,17 @@
       flex-shrink: 0;
     }
 
+    .bus-map-status {
+      font-size: 1.15rem;
+      color: var(--text-soft);
+      line-height: 1.35;
+      text-align: right;
+    }
+
+    .bus-map-status strong {
+      color: var(--text);
+    }
+
     .bus-map-refresh {
       min-height: 3.2rem;
       padding: 0.6rem 1.2rem;
@@ -1137,6 +1148,7 @@
                 <h2 class="section-title">버스 위치</h2>
               </div>
               <div class="bus-map-meta">
+                <div class="bus-map-status" id="busSyncStatus">실시간 연동 대기 중</div>
                 <button class="pill-btn outline-dark bus-map-refresh" type="button" id="busRefreshBtn">지금 갱신</button>
               </div>
             </div>
@@ -1519,6 +1531,7 @@
     const statusTimeLabelEl = document.getElementById("statusTimeLabel");
     const busMapTrackEl = document.getElementById("busMapTrack");
     const busRefreshBtn = document.getElementById("busRefreshBtn");
+    const busSyncStatusEl = document.getElementById("busSyncStatus");
     let lastBusUpdatedAt = null;
     let lastTrackedBuses = { currentBus: null, nextBus: null };
     let busRefreshPromise = null;
@@ -1636,6 +1649,28 @@
     function formatBusUpdatedAt(date) {
       if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "대기 중";
       return `갱신 ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function setBusSyncStatus(message) {
+      if (!busSyncStatusEl) return;
+      busSyncStatusEl.innerHTML = message;
+    }
+
+    function describeBusSyncError(error) {
+      const message = String(error?.message ?? error ?? "").toLowerCase();
+      if (message.includes("quota") || message.includes("token") || message.includes("한도")) {
+        return "실시간 API 한도 초과";
+      }
+      if (message.includes("http 429")) {
+        return "실시간 API 요청 제한";
+      }
+      if (message.includes("http")) {
+        return "실시간 API 응답 오류";
+      }
+      if (message.includes("비어")) {
+        return "실시간 데이터가 비어 있음";
+      }
+      return "실시간 연동 실패";
     }
 
     function renderBusTimeline(currentBus, nextBus) {
@@ -1833,6 +1868,7 @@
         lastTrackedBuses = trackedBuses;
       }
       renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus);
+      setBusSyncStatus(`실시간 연동됨 · <strong>${formatBusUpdatedAt(lastBusUpdatedAt)}</strong>`);
 
       const bus = trackedBuses.currentBus ?? trackedBuses.nextBus;
       if (bus) {
@@ -1859,7 +1895,7 @@
           const bus = await loadArrivalMinutes();
           predict();
           return bus;
-        } catch (_error) {
+        } catch (error) {
           const fallbackMinutes = estimateArrivalMinutesFromBus(
             { stationSeq: Math.max(0, TARGET_STATION_SEQ - 8) },
             getCurrentDayType(),
@@ -1871,6 +1907,7 @@
           }
 
           renderBusMap(lastTrackedBuses.currentBus, lastTrackedBuses.nextBus);
+          setBusSyncStatus(`${describeBusSyncError(error)} · <strong>마지막 위치 표시 중</strong>`);
           predict();
           return null;
         } finally {
@@ -1949,6 +1986,7 @@
       refreshCurrentMinutes();
       refreshStatusTime();
       renderBusMap(null, null);
+      setBusSyncStatus("실시간 연동 대기 중");
       predict();
       setInterval(refreshCurrentMinutes, 1000);
       setInterval(refreshStatusTime, 1000);
