@@ -1544,7 +1544,7 @@
         return "실시간 API 응답 오류";
       }
       if (message.includes("비어")) {
-        return "실시간 데이터가 비어 있음";
+        return "실시간 데이터 확인 실패";
       }
       return "실시간 연동 실패";
     }
@@ -1847,18 +1847,25 @@
       const busLocationList = extractBusLocationList(payload);
       const trackedBuses = chooseTrackedBuses(busLocationList);
       lastBusUpdatedAt = new Date();
-      if (trackedBuses.buses?.length) {
+      const hasFreshData = trackedBuses.buses?.length > 0;
+      const hasPreviousData = lastTrackedBuses.buses?.length > 0;
+
+      if (hasFreshData) {
         lastTrackedBuses = trackedBuses;
       }
       setupNaverMapLinks();
-      renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus, trackedBuses.thirdBus);
-      if (trackedBuses.buses?.length) {
+      if (hasFreshData) {
+        renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus, trackedBuses.thirdBus);
         setBusSyncStatus(`실시간 연동됨 · <strong>${formatBusUpdatedAt(lastBusUpdatedAt)}</strong>`);
+      } else if (hasPreviousData) {
+        renderBusMap(lastTrackedBuses.currentBus, lastTrackedBuses.nextBus, lastTrackedBuses.thirdBus);
+        setBusSyncStatus(`실시간 데이터가 잠시 부족합니다 · <strong>마지막 위치 유지 중</strong>`);
       } else {
-        setBusSyncStatus(`실시간 데이터가 비어 있음 · <strong>마지막 위치 표시 중</strong>`);
+        renderBusMap(null, null, null);
+        setBusSyncStatus("실시간 데이터를 확인하는 중");
       }
 
-      const bus = trackedBuses.currentBus ?? trackedBuses.nextBus;
+      const bus = trackedBuses.currentBus ?? trackedBuses.nextBus ?? lastTrackedBuses.currentBus ?? lastTrackedBuses.nextBus;
       if (bus) {
         const minutes = estimateArrivalMinutesFromBus(bus, getCurrentDayType(), getCurrentMinutes());
         if (Number.isFinite(minutes)) {
@@ -1876,7 +1883,8 @@
         return fallbackBus;
       }
 
-      throw new Error("실시간 위치 정보가 비어 있습니다.");
+      arrivalInput.value = "";
+      return null;
     }
 
     async function refreshBusLocation() {
