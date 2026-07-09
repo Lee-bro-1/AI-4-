@@ -1198,7 +1198,7 @@
         <div class="container">
           <div class="naver-map-card">
             <h2 class="section-title">네이버 지도</h2>
-            <p>사당역9번출구앞 위치를 네이버 지도 앱으로 바로 열어볼 수 있어요.</p>
+            <p>현재 7800 버스 위치를 네이버 지도 앱으로 바로 열어볼 수 있어요.</p>
             <div class="naver-map-actions">
               <a class="pill-btn primary" id="naverMapAppLink" href="#" target="_self" rel="noreferrer">네이버 지도 앱 열기</a>
               <a class="pill-btn outline-dark" id="naverMapWebLink" href="#" target="_blank" rel="noreferrer">웹으로 보기</a>
@@ -1719,8 +1719,12 @@
       };
     }
 
-    function setupNaverMapLinks() {
-      const urls = buildNaverMapUrls(TARGET_STATION_NAME);
+    function setupNaverMapLinks(bus) {
+      const busLocationName = formatBusStationName(bus);
+      const searchName = busLocationName && busLocationName !== "정류장 정보 없음"
+        ? `${BUS_ROUTE_NAME} ${busLocationName}`
+        : BUS_ROUTE_NAME;
+      const urls = buildNaverMapUrls(searchName);
       if (naverMapAppLinkEl) {
         naverMapAppLinkEl.href = urls.app;
       }
@@ -1958,6 +1962,7 @@
       if (trackedBuses.buses?.length) {
         lastTrackedBuses = trackedBuses;
       }
+      setupNaverMapLinks(trackedBuses.currentBus ?? trackedBuses.nextBus ?? trackedBuses.thirdBus ?? null);
       renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus, trackedBuses.thirdBus);
       setBusSyncStatus(`실시간 연동됨 · <strong>${formatBusUpdatedAt(lastBusUpdatedAt)}</strong>`);
 
@@ -1997,6 +2002,7 @@
             arrivalInput.value = String(fallbackMinutes);
           }
 
+          setupNaverMapLinks(lastTrackedBuses.currentBus ?? lastTrackedBuses.nextBus ?? lastTrackedBuses.thirdBus ?? null);
           renderBusMap(lastTrackedBuses.currentBus, lastTrackedBuses.nextBus, lastTrackedBuses.thirdBus);
           setBusSyncStatus(`${describeBusSyncError(error)} · <strong>마지막 위치 표시 중</strong>`);
           predict();
@@ -2076,7 +2082,7 @@
       arrivalInput.value = "";
       refreshCurrentMinutes();
       refreshStatusTime();
-      setupNaverMapLinks();
+      setupNaverMapLinks(null);
       renderBusMap(null, null, null);
       setBusSyncStatus("실시간 연동 대기 중");
       predict();
