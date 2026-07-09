@@ -1464,6 +1464,7 @@
     let lastBusUpdatedAt = null;
     let lastTrackedBuses = { currentBus: null, nextBus: null, thirdBus: null, buses: [] };
     let busRefreshPromise = null;
+    let customScheduleLocked = false;
 
     function pad(value) {
       return String(value).padStart(2, "0");
@@ -1843,6 +1844,25 @@
       return getCurrentMinutes();
     }
 
+    function lockCustomSchedule() {
+      customScheduleLocked = true;
+    }
+
+    function unlockLiveSchedule() {
+      customScheduleLocked = false;
+    }
+
+    function syncLiveSchedule() {
+      if (customScheduleLocked) return;
+      const now = new Date();
+      if (todayDateInputEl) {
+        todayDateInputEl.value = formatDateLabel(now);
+      }
+      if (currentMinutesInput) {
+        currentMinutesInput.value = formatCurrentTime(now.getHours() * 60 + now.getMinutes());
+      }
+    }
+
       function estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes, busCapacity = BUS_CAPACITY_DEFAULT, options = {}) {
         if (!Number.isFinite(congestionRatio)) return null;
         const headwayMinutes = Number.isFinite(options.headwayMinutes) && options.headwayMinutes > 0
@@ -2157,14 +2177,10 @@
     }
 
     function resetToLive() {
-      const now = new Date();
-      if (todayDateInputEl) {
-        todayDateInputEl.value = formatDateLabel(now);
-      }
-      if (currentMinutesInput) {
-        currentMinutesInput.value = formatCurrentTime(now.getHours() * 60 + now.getMinutes());
-      }
+      unlockLiveSchedule();
+      syncLiveSchedule();
       predict();
+      refreshBusLocation();
     }
 
     function refreshStatusTime() {
@@ -2285,7 +2301,8 @@
 
     function initialize() {
       arrivalInput.value = "";
-      refreshCurrentMinutes();
+      unlockLiveSchedule();
+      syncLiveSchedule();
       refreshStatusTime();
       setCongestionHintVisible(false);
       setupNaverMapLinks();
@@ -2294,12 +2311,24 @@
       predict();
       setInterval(refreshStatusTime, 1000);
       if (todayDateInputEl) {
-        todayDateInputEl.addEventListener("change", predict);
-        todayDateInputEl.addEventListener("input", predict);
+        todayDateInputEl.addEventListener("change", () => {
+          lockCustomSchedule();
+          predict();
+        });
+        todayDateInputEl.addEventListener("input", () => {
+          lockCustomSchedule();
+          predict();
+        });
       }
       if (currentMinutesInput) {
-        currentMinutesInput.addEventListener("change", predict);
-        currentMinutesInput.addEventListener("input", predict);
+        currentMinutesInput.addEventListener("change", () => {
+          lockCustomSchedule();
+          predict();
+        });
+        currentMinutesInput.addEventListener("input", () => {
+          lockCustomSchedule();
+          predict();
+        });
       }
       if (liveResetBtnEl) {
         liveResetBtnEl.addEventListener("click", resetToLive);
@@ -2317,7 +2346,11 @@
         feedbackSaveBtnEl.addEventListener("click", saveFeedback);
       }
       refreshBusLocation();
-      setInterval(refreshBusLocation, AUTO_REFRESH_MS);
+      setInterval(() => {
+        if (customScheduleLocked) return;
+        syncLiveSchedule();
+        refreshBusLocation();
+      }, AUTO_REFRESH_MS);
     }
 
     initialize();
