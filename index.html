@@ -1513,6 +1513,8 @@
       [42, "사당역사거리(미정차)"],
       [43, "사당역9번출구앞"],
       [44, "남현동(미정차)"],
+      [45, "과천진입(미정차)"],
+      [46, "과천동행정복지센터"],
     ]);
     const AUTO_REFRESH_MS = 15000;
 
@@ -1702,7 +1704,7 @@
       anchorSeqs.push(targetSeq - 2, targetSeq - 1, targetSeq, targetSeq + 1, targetSeq + 2);
 
       return Array.from(new Set(anchorSeqs))
-        .filter((seq) => Number.isFinite(seq) && seq >= 0)
+        .filter((seq) => Number.isFinite(seq) && seq >= 0 && seq !== 47)
         .sort((a, b) => a - b);
     }
 
