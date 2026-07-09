@@ -592,6 +592,12 @@
       background: #475569;
     }
 
+    .bus-map-node.live .bus-map-marker {
+      background: linear-gradient(180deg, var(--red), #ef4444);
+      box-shadow: 0 10px 22px rgba(200, 32, 20, 0.2);
+      font-size: 1.7rem;
+    }
+
     .bus-map-node.gap .bus-map-marker {
       width: 1.2rem;
       height: 1.2rem;
@@ -1638,6 +1644,20 @@
       const nextSeq = Number.isFinite(Number(nextBus?.stationSeq)) ? Number(nextBus.stationSeq) : null;
       const targetSeq = Number(TARGET_STATION_SEQ);
       const nodes = [];
+      const liveStationName = formatBusStationName(currentBus);
+      const liveLabel = liveStationName && liveStationName !== "정류장 정보 없음"
+        ? `${BUS_ROUTE_NAME}(${liveStationName})`
+        : BUS_ROUTE_NAME;
+
+      nodes.push(`
+        <div class="bus-map-node live">
+          <div class="bus-map-marker">🚌</div>
+          <div class="bus-map-stop live">
+            <div class="bus-map-stop-title">${liveLabel}</div>
+          </div>
+        </div>
+      `);
+
       for (const point of ROUTE_FLOW) {
         const isTurn = point.state === "turn";
         const isCurrent = Number.isFinite(currentSeq) && point.seq === currentSeq;
