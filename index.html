@@ -1757,14 +1757,11 @@
       const seqs = [currentBus?.stationSeq, nextBus?.stationSeq, thirdBus?.stationSeq]
         .filter((value) => Number.isFinite(Number(value)))
         .map((value) => Number(value));
-      const targetSeq = Number(TARGET_STATION_SEQ);
       const anchorSeqs = [];
 
       for (const seq of seqs) {
         anchorSeqs.push(seq - 1, seq, seq + 1);
       }
-
-      anchorSeqs.push(targetSeq - 2, targetSeq - 1, targetSeq, targetSeq + 1, targetSeq + 2);
 
       return Array.from(new Set(anchorSeqs))
         .filter((seq) => Number.isFinite(seq) && seq >= 0 && seq !== 47)
@@ -1777,7 +1774,6 @@
       const currentSeq = Number.isFinite(Number(currentBus?.stationSeq)) ? Number(currentBus.stationSeq) : null;
       const nextSeq = Number.isFinite(Number(nextBus?.stationSeq)) ? Number(nextBus.stationSeq) : null;
       const thirdSeq = Number.isFinite(Number(thirdBus?.stationSeq)) ? Number(thirdBus.stationSeq) : null;
-      const targetSeq = Number(TARGET_STATION_SEQ);
       const stops = buildBusTimelineStops(currentBus, nextBus, thirdBus);
       const nodes = [];
 
@@ -1810,15 +1806,12 @@
         const isCurrent = currentSeq === seq;
         const isNext = nextSeq === seq;
         const isThird = thirdSeq === seq;
-        const isTarget = targetSeq === seq;
         const stopName = isCurrent ? formatBusStationName(currentBus) : isNext ? formatBusStationName(nextBus) : isThird ? formatBusStationName(thirdBus) : getStationNameBySeq(seq);
         const busLabel = isCurrent || isNext || isThird
           ? `${BUS_ROUTE_NAME}(${stopName})`
-          : isTarget
-            ? `${BUS_ROUTE_NAME}(${stopName})`
-            : stopName;
-        const stopClass = isCurrent ? "current" : isNext ? "next" : isThird ? "third" : isTarget ? "target" : "";
-        const markerIcon = isCurrent || isNext || isThird ? "🚌" : isTarget ? "📍" : "•";
+          : stopName;
+        const stopClass = isCurrent ? "current" : isNext ? "next" : isThird ? "third" : "";
+        const markerIcon = isCurrent || isNext || isThird ? "🚌" : "•";
 
         nodes.push(`
           <div class="bus-map-node ${stopClass}">
