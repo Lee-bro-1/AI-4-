@@ -1683,10 +1683,23 @@
       return "정류장 정보 없음";
     }
 
+    function normalizeStationLabel(label, seq) {
+      const text = String(label ?? "").trim();
+      if (!text) {
+        return Number.isFinite(Number(seq)) ? getStationNameBySeq(seq) : "정류장 정보 없음";
+      }
+
+      if (/^정류장\s*\d+$/i.test(text)) {
+        return Number.isFinite(Number(seq)) ? getStationNameBySeq(seq) : text;
+      }
+
+      return text;
+    }
+
     function formatBusStationName(bus) {
       const label = bus?.stationName ?? bus?.stationNm ?? bus?.bsNm ?? bus?.stopName ?? "";
-      if (label) return String(label);
-      if (Number.isFinite(bus?.stationSeq)) return `정류장 ${bus.stationSeq}`;
+      if (label) return normalizeStationLabel(label, bus?.stationSeq);
+      if (Number.isFinite(bus?.stationSeq)) return getStationNameBySeq(bus.stationSeq);
       return "정류장 정보 없음";
     }
 
