@@ -1198,7 +1198,7 @@
         <div class="container">
           <div class="naver-map-card">
             <h2 class="section-title">네이버 지도</h2>
-            <p>현재 7800 버스 위치를 네이버 지도 앱으로 바로 열어볼 수 있어요.</p>
+            <p>7800 버스 노선 페이지를 네이버 지도 앱으로 바로 열어볼 수 있어요.</p>
             <div class="naver-map-actions">
               <a class="pill-btn primary" id="naverMapAppLink" href="#" target="_self" rel="noreferrer">네이버 지도 앱 열기</a>
               <a class="pill-btn outline-dark" id="naverMapWebLink" href="#" target="_blank" rel="noreferrer">웹으로 보기</a>
@@ -1542,6 +1542,7 @@
     const BUS_API_PROXY_ENDPOINT = "https://api.allorigins.win/raw?url=";
     const BUS_ROUTE_ID = "200000150";
     const BUS_ROUTE_NAME = "7800";
+    const NAVER_MAP_ROUTE_URL = "https://map.naver.com/p/entry/bus-route/9596?c=16.00,0,0,0,dh";
     const TARGET_STATION_NAME = "사당역9번출구앞";
     const TARGET_STATION_SEQ = 43;
     const STATION_NAME_OVERRIDES = new Map([
@@ -1711,25 +1712,12 @@
       return "실시간 연동 실패";
     }
 
-    function buildNaverMapUrls(placeName) {
-      const query = encodeURIComponent(placeName);
-      return {
-        app: `nmap://search?query=${query}`,
-        web: `https://map.naver.com/v5/search/${query}`,
-      };
-    }
-
-    function setupNaverMapLinks(bus) {
-      const busLocationName = formatBusStationName(bus);
-      const searchName = busLocationName && busLocationName !== "정류장 정보 없음"
-        ? `${BUS_ROUTE_NAME} ${busLocationName}`
-        : BUS_ROUTE_NAME;
-      const urls = buildNaverMapUrls(searchName);
+    function setupNaverMapLinks() {
       if (naverMapAppLinkEl) {
-        naverMapAppLinkEl.href = urls.app;
+        naverMapAppLinkEl.href = NAVER_MAP_ROUTE_URL;
       }
       if (naverMapWebLinkEl) {
-        naverMapWebLinkEl.href = urls.web;
+        naverMapWebLinkEl.href = NAVER_MAP_ROUTE_URL;
       }
     }
 
@@ -1955,7 +1943,7 @@
       if (trackedBuses.buses?.length) {
         lastTrackedBuses = trackedBuses;
       }
-      setupNaverMapLinks(trackedBuses.currentBus ?? trackedBuses.nextBus ?? trackedBuses.thirdBus ?? null);
+      setupNaverMapLinks();
       renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus, trackedBuses.thirdBus);
       setBusSyncStatus(`실시간 연동됨 · <strong>${formatBusUpdatedAt(lastBusUpdatedAt)}</strong>`);
 
@@ -1995,7 +1983,7 @@
             arrivalInput.value = String(fallbackMinutes);
           }
 
-          setupNaverMapLinks(lastTrackedBuses.currentBus ?? lastTrackedBuses.nextBus ?? lastTrackedBuses.thirdBus ?? null);
+          setupNaverMapLinks();
           renderBusMap(lastTrackedBuses.currentBus, lastTrackedBuses.nextBus, lastTrackedBuses.thirdBus);
           setBusSyncStatus(`${describeBusSyncError(error)} · <strong>마지막 위치 표시 중</strong>`);
           predict();
@@ -2075,7 +2063,7 @@
       arrivalInput.value = "";
       refreshCurrentMinutes();
       refreshStatusTime();
-      setupNaverMapLinks(null);
+      setupNaverMapLinks();
       renderBusMap(null, null, null);
       setBusSyncStatus("실시간 연동 대기 중");
       predict();
