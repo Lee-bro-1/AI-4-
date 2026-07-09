@@ -654,12 +654,12 @@
                 </label>
                 <label class="field">
                   <span class="field-label">다음 버스 도착까지 남은 시간(분)</span>
-                  <input class="field-input" id="arrivalInput" type="number" min="0" step="1" placeholder="네이버 지도에서 확인" />
+                  <input class="field-input" id="arrivalInput" type="number" min="0" step="1" readonly placeholder="실시간 자동 연동" />
                 </label>
                 <button class="pill-btn primary" id="predictBtn" type="button">혼잡도 보기</button>
               </div>
               <p class="helper" style="margin-top: 1.6rem;">
-                네이버 지도에서 본 7800번의 남은 도착 시간을 같이 넣으면, 다음 버스를 탈 수 있는지 여부를 `가능 / 어려움`으로 나누고 대기 시간도 그 결과에 따라 딱 두 가지로 표시합니다.
+                다음 버스 도착 시간은 실시간 API에서 자동으로 받아오고, 아래 결과는 그 값을 바탕으로 보여줍니다.
               </p>
             </section>
 
@@ -1024,6 +1024,12 @@
         ]
       }
     ];
+    const API_URL = "https://apis.data.go.kr/6410000/busarrivalservice/getBusArrivalList";
+    const DEFAULT_SERVICE_KEY = "2d0fddd3308e996bd79b456ddc2620af89000344f60102774ef36c085ccad06a";
+    const DEFAULT_STATION_ID = "119000302";
+    const DEFAULT_ROUTE_ID = "200000150";
+    const AUTO_REFRESH_MS = 30000;
+
     const hourInput = document.getElementById("hourInput");
     const dateInput = document.getElementById("dateInput");
     const arrivalInput = document.getElementById("arrivalInput");
@@ -1102,6 +1108,44 @@
       };
     }
 
+    function getTagText(root, tagName) {
+      return root.querySelector(tagName)?.textContent?.trim() || "";
+    }
+
+    function parseArrivalItems(xmlText) {
+      const doc = new DOMParser().parseFromString(xmlText, "text/xml");
+      if (doc.querySelector("parsererror")) {
+        throw new Error("실시간 API 응답을 읽지 못했습니다.");
+      }
+
+      return Array.from(doc.querySelectorAll("busarrivallist")).map((item) => ({
+        routeId: getTagText(item, "routeid"),
+        predictTime1: getTagText(item, "predicttime1"),
+        predictTime2: getTagText(item, "predicttime2"),
+        remainSeatCnt1: getTagText(item, "remainseatcnt1"),
+        remainSeatCnt2: getTagText(item, "remainseatcnt2")
+      }));
+    }
+
+    async function loadArrivalMinutes() {
+      const url = new URL(API_URL);
+      url.searchParams.set("serviceKey", DEFAULT_SERVICE_KEY);
+      url.searchParams.set("stationId", DEFAULT_STATION_ID);
+
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const xmlText = await response.text();
+      const items = parseArrivalItems(xmlText);
+      const matched = items.find((item) => item.routeId === DEFAULT_ROUTE_ID);
+      const minutes = matched ? Number(matched.predictTime1) : null;
+
+      arrivalInput.value = Number.isFinite(minutes) && minutes >= 0 ? String(Math.round(minutes)) : "";
+      return matched;
+    }
+
     function formatWaitMinutes(minutes) {
       if (!Number.isFinite(minutes)) return "데이터 없음";
       if (minutes <= 0) return "추가 대기 없음";
@@ -1155,13 +1199,29 @@
       populateHourOptions();
       dateInput.value = formatDateLabel(new Date());
       hourInput.value = "18";
-      arrivalInput.value = "0";
+      arrivalInput.value = "";
       dateInput.addEventListener("change", predict);
       hourInput.addEventListener("change", predict);
-      arrivalInput.addEventListener("change", predict);
-      arrivalInput.addEventListener("input", predict);
-      predictBtn.addEventListener("click", predict);
+      predictBtn.addEventListener("click", async () => {
+        try {
+          await loadArrivalMinutes();
+        } catch (error) {
+          arrivalInput.value = "";
+        }
+        predict();
+      });
       predict();
+      loadArrivalMinutes()
+        .then(() => predict())
+        .catch(() => predict());
+      setInterval(() => {
+        loadArrivalMinutes()
+          .then(() => predict())
+          .catch(() => {
+            arrivalInput.value = "";
+            predict();
+          });
+      }, AUTO_REFRESH_MS);
     }
 
     initialize();
