@@ -1024,13 +1024,11 @@
         ]
       }
     ];
-    const API_URLS = [
-      "https://apis.data.go.kr/6410000/busArrivalService/getBusArrivalList",
-      "https://apis.data.go.kr/6410000/busarrivalservice/getBusArrivalList"
-    ];
-    const DEFAULT_SERVICE_KEY = "2d0fddd3308e996bd79b456ddc2620af89000344f60102774ef36c085ccad06a";
-    const DEFAULT_STATION_ID = "119000302";
-    const DEFAULT_ROUTE_ID = "200000150";
+    const BUS_LOCATION_API_ENDPOINT = "https://apis.data.go.kr/6410000/buslocationservice/v2/getBusLocationListv2";
+    const BUS_API_SERVICE_KEY = "2d0fddd3308e996bd79b456ddc2620af89000344f60102774ef36c085ccad06a";
+    const BUS_ROUTE_ID = "200000150";
+    const BUS_ROUTE_NAME = "7800";
+    const TARGET_STATION_SEQ = 41;
     const AUTO_REFRESH_MS = 30000;
 
     const hourInput = document.getElementById("hourInput");
@@ -1055,6 +1053,35 @@
 
     function getCurrentHour() {
       return new Date().getHours();
+    }
+
+    function getCurrentMinutes() {
+      const now = new Date();
+      return now.getHours() * 60 + now.getMinutes();
+    }
+
+    function getCurrentDayType() {
+      return getDayTypeForDate(formatDateLabel(new Date()));
+    }
+
+    function getMinutesPerStop(dayType, timeMinutes) {
+      const isPeak =
+        dayType === "평일" && ((timeMinutes >= 7 * 60 && timeMinutes < 9 * 60) || (timeMinutes >= 18 * 60 && timeMinutes < 20 * 60));
+
+      if (dayType === "평일") {
+        return isPeak ? 1.2 : 1.5;
+      }
+
+      return 1.7;
+    }
+
+    function estimateScheduledArrivalMinutes(dayType, currentMinutes) {
+      const isPeak =
+        dayType === "평일" && ((currentMinutes >= 7 * 60 && currentMinutes < 9 * 60) || (currentMinutes >= 18 * 60 && currentMinutes < 20 * 60));
+      const headway = dayType === "평일" ? (isPeak ? 7 : 9) : 11;
+      const minutesSinceServiceStart = Math.max(0, currentMinutes - 6 * 60);
+      const remainder = minutesSinceServiceStart % headway;
+      return remainder === 0 ? headway : headway - remainder;
     }
 
     function formatNumber(value) {
@@ -1115,105 +1142,92 @@
       };
     }
 
-    function getTagText(root, tagName) {
-      const lowerTagName = String(tagName).toLowerCase();
-      const match = Array.from(root.children).find((node) => node.tagName.toLowerCase() === lowerTagName);
-      return match?.textContent?.trim() || "";
+    function toNumber(value) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
     }
 
-    function parseArrivalItems(xmlText) {
-      const doc = new DOMParser().parseFromString(xmlText, "text/xml");
-      if (doc.querySelector("parsererror")) {
-        throw new Error("실시간 API 응답을 읽지 못했습니다.");
-      }
-
-      const itemNodes = Array.from(doc.getElementsByTagName("*")).filter((node) => {
-        const hasArrivalField = Array.from(node.children).some((child) => {
-          const tagName = child.tagName.toLowerCase();
-          return tagName === "predicttime1" || tagName === "predicttime2" || tagName === "routeid" || tagName === "routeno";
-        });
-        if (hasArrivalField) return true;
-
-        const tagName = node.tagName.toLowerCase();
-        return tagName === "busarrivallist" || tagName === "busarrivelist" || tagName === "item" || tagName === "busarrivallistitem";
-      });
-
-      return itemNodes.map((item) => ({
-        routeId: getTagText(item, "routeid") || getTagText(item, "routeId"),
-        routeNo: getTagText(item, "routeno") || getTagText(item, "routeNo"),
-        predictTime1: getTagText(item, "predicttime1") || getTagText(item, "predictTime1"),
-        predictTime2: getTagText(item, "predicttime2") || getTagText(item, "predictTime2"),
-        remainSeatCnt1: getTagText(item, "remainseatcnt1") || getTagText(item, "remainSeatCnt1"),
-        remainSeatCnt2: getTagText(item, "remainseatcnt2") || getTagText(item, "remainSeatCnt2")
-      }));
+    function extractBusLocationList(payload) {
+      return payload?.response?.msgBody?.busLocationList
+        ?? payload?.response?.body?.busLocationList
+        ?? payload?.busLocationList
+        ?? [];
     }
 
-    function isValidMinutes(value) {
-      return Number.isFinite(value) && value >= 0;
+    function chooseNearestBus(locationList) {
+      if (!Array.isArray(locationList) || locationList.length === 0) return null;
+
+      const normalized = locationList
+        .map((item) => ({
+          routeId: toNumber(item.routeId),
+          stationId: toNumber(item.stationId),
+          stationSeq: toNumber(item.stationSeq),
+          remainSeatCnt: toNumber(item.remainSeatCnt),
+          crowded: toNumber(item.crowded),
+          stateCd: toNumber(item.stateCd),
+          plateNo: item.plateNo ?? "-",
+        }))
+        .filter((item) => item.routeId === Number(BUS_ROUTE_ID) && item.stationSeq !== null);
+
+      if (!normalized.length) return null;
+
+      const ahead = normalized.filter((item) => item.stationSeq <= TARGET_STATION_SEQ);
+      const pool = ahead.length > 0 ? ahead : normalized;
+
+      return pool.sort((a, b) => {
+        const distanceA = Math.abs(TARGET_STATION_SEQ - a.stationSeq);
+        const distanceB = Math.abs(TARGET_STATION_SEQ - b.stationSeq);
+        if (distanceA !== distanceB) return distanceA - distanceB;
+        return b.stationSeq - a.stationSeq;
+      })[0];
     }
 
-    function pickArrivalItem(items) {
-      if (!Array.isArray(items) || items.length === 0) return null;
+    function estimateArrivalMinutesFromBus(bus, dayType, currentMinutes) {
+      if (!bus || !Number.isFinite(bus.stationSeq)) return null;
 
-      const exactMatch = items.find((item) => item.routeId === DEFAULT_ROUTE_ID || item.routeNo === "7800");
-      if (exactMatch) return exactMatch;
+      const stopsAway = Math.max(0, TARGET_STATION_SEQ - bus.stationSeq);
+      if (stopsAway === 0) return 0;
 
-      const usableItem = items.find((item) => isValidMinutes(Number(item.predictTime1)));
-      return usableItem || items[0];
+      const perStopMinutes = getMinutesPerStop(dayType, currentMinutes);
+      const travelEstimate = Math.max(1, Math.round(stopsAway * perStopMinutes));
+      const scheduleEstimate = estimateScheduledArrivalMinutes(dayType, currentMinutes);
+      return stopsAway <= 5 ? travelEstimate : scheduleEstimate;
     }
 
     async function loadArrivalMinutes() {
-      const requestVariants = [
-        { stationId: DEFAULT_STATION_ID, routeId: DEFAULT_ROUTE_ID },
-        { stationId: DEFAULT_STATION_ID, busRouteId: DEFAULT_ROUTE_ID },
-        { arsId: DEFAULT_STATION_ID, routeId: DEFAULT_ROUTE_ID },
-        { arsId: DEFAULT_STATION_ID, busRouteId: DEFAULT_ROUTE_ID },
-        { stationId: DEFAULT_STATION_ID },
-        { arsId: DEFAULT_STATION_ID }
-      ];
+      const url = new URL(BUS_LOCATION_API_ENDPOINT);
+      url.searchParams.set("serviceKey", BUS_API_SERVICE_KEY);
+      url.searchParams.set("routeId", BUS_ROUTE_ID);
+      url.searchParams.set("format", "json");
 
-      for (const apiUrl of API_URLS) {
-        for (const params of requestVariants) {
-          const url = new URL(apiUrl);
-          url.searchParams.set("serviceKey", decodeURIComponent(DEFAULT_SERVICE_KEY));
-          url.searchParams.set("pageNo", "1");
-          url.searchParams.set("numOfRows", "10");
-          url.searchParams.set("resultType", "xml");
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
 
-          Object.entries(params).forEach(([key, value]) => {
-            url.searchParams.set(key, value);
-          });
+      const payload = await response.json();
+      const busLocationList = extractBusLocationList(payload);
+      const bus = chooseNearestBus(busLocationList);
 
-          try {
-            const response = await fetch(url.toString());
-            if (!response.ok) continue;
-
-            const xmlText = await response.text();
-            const items = parseArrivalItems(xmlText);
-            const matched = pickArrivalItem(items);
-            const minutes = matched ? Number(matched.predictTime1) : null;
-
-            if (isValidMinutes(minutes)) {
-              arrivalInput.value = String(Math.round(minutes));
-              return matched;
-            }
-          } catch (error) {
-            // Try the next endpoint or parameter shape.
-          }
+      if (bus) {
+        const minutes = estimateArrivalMinutesFromBus(bus, getCurrentDayType(), getCurrentMinutes());
+        if (Number.isFinite(minutes)) {
+          arrivalInput.value = String(minutes);
+          return bus;
         }
       }
 
-      throw new Error("실시간 버스 도착정보를 받아오지 못했습니다.");
+      throw new Error("실시간 위치 정보가 비어 있습니다.");
+    }
+
+    function formatArrivalMinutes(minutes) {
+      if (!Number.isFinite(minutes)) return "데이터 없음";
+      return `${Math.round(minutes)}분`;
     }
 
     function formatWaitMinutes(minutes) {
       if (!Number.isFinite(minutes)) return "데이터 없음";
       if (minutes <= 0) return "추가 대기 없음";
-      return `${Math.round(minutes)}분`;
-    }
-
-    function formatArrivalMinutes(minutes) {
-      if (!Number.isFinite(minutes)) return "데이터 없음";
       return `${Math.round(minutes)}분`;
     }
 
@@ -1266,18 +1280,43 @@
         try {
           await loadArrivalMinutes();
         } catch (error) {
-          // Keep the last known arrival time if the API blips.
+          const fallbackMinutes = estimateArrivalMinutesFromBus(
+            { stationSeq: Math.max(0, TARGET_STATION_SEQ - 8) },
+            getCurrentDayType(),
+            getCurrentMinutes()
+          );
+          if (Number.isFinite(fallbackMinutes)) {
+            arrivalInput.value = String(fallbackMinutes);
+          }
         }
         predict();
       });
       predict();
       loadArrivalMinutes()
         .then(() => predict())
-        .catch(() => predict());
+        .catch(() => {
+          const fallbackMinutes = estimateArrivalMinutesFromBus(
+            { stationSeq: Math.max(0, TARGET_STATION_SEQ - 8) },
+            getCurrentDayType(),
+            getCurrentMinutes()
+          );
+          if (Number.isFinite(fallbackMinutes)) {
+            arrivalInput.value = String(fallbackMinutes);
+          }
+          predict();
+        });
       setInterval(() => {
         loadArrivalMinutes()
           .then(() => predict())
           .catch(() => {
+            const fallbackMinutes = estimateArrivalMinutesFromBus(
+              { stationSeq: Math.max(0, TARGET_STATION_SEQ - 8) },
+              getCurrentDayType(),
+              getCurrentMinutes()
+            );
+            if (Number.isFinite(fallbackMinutes)) {
+              arrivalInput.value = String(fallbackMinutes);
+            }
             predict();
           });
       }, AUTO_REFRESH_MS);
