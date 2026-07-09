@@ -1556,23 +1556,33 @@
     }
 
     async function fetchBusPayload(url) {
-      const directResponse = await fetch(url.toString());
-      if (directResponse.ok) {
+      const attempts = [
+        { name: "직접 연동", url: url.toString() },
+        { name: "프록시 연동", url: `${BUS_API_PROXY_ENDPOINT}${encodeURIComponent(url.toString())}` }
+      ];
+
+      let lastError = null;
+
+      for (const attempt of attempts) {
         try {
-          return await directResponse.json();
-        } catch (_error) {
-          // Fall through to proxy parsing below.
+          const response = await fetch(attempt.url);
+          const text = await response.text();
+
+          if (!response.ok) {
+            throw new Error(`${attempt.name} HTTP ${response.status}: ${text.slice(0, 120)}`);
+          }
+
+          try {
+            return JSON.parse(text);
+          } catch (_jsonError) {
+            return text;
+          }
+        } catch (error) {
+          lastError = error;
         }
       }
 
-      const proxyUrl = `${BUS_API_PROXY_ENDPOINT}${encodeURIComponent(url.toString())}`;
-      const proxyResponse = await fetch(proxyUrl);
-      if (!proxyResponse.ok) {
-        throw new Error(`HTTP ${proxyResponse.status}`);
-      }
-
-      const text = await proxyResponse.text();
-      return JSON.parse(text);
+      throw lastError ?? new Error("실시간 API 연동 실패");
     }
 
     function buildBusTimelineStops(currentBus, nextBus, thirdBus) {
@@ -1715,10 +1725,24 @@
     }
 
     function extractBusLocationList(payload) {
-      return payload?.response?.msgBody?.busLocationList
-        ?? payload?.response?.body?.busLocationList
-        ?? payload?.busLocationList
-        ?? [];
+      const candidates = [
+        payload?.response?.msgBody?.busLocationList,
+        payload?.response?.body?.busLocationList,
+        payload?.response?.msgBody?.itemList,
+        payload?.response?.body?.itemList,
+        payload?.response?.body?.items?.item,
+        payload?.response?.items?.item,
+        payload?.busLocationList,
+        payload?.itemList,
+        payload?.items?.item
+      ];
+
+      for (const candidate of candidates) {
+        if (Array.isArray(candidate)) return candidate;
+        if (candidate && typeof candidate === "object" && Array.isArray(candidate.item)) return candidate.item;
+      }
+
+      return [];
     }
 
     function chooseTrackedBuses(locationList) {
