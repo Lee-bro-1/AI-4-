@@ -892,6 +892,10 @@
       gap: var(--space-2);
     }
 
+    .result-grid-secondary {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .status-box {
       padding: 1.1rem 1.1rem 1rem;
       border-radius: 1.6rem;
@@ -957,6 +961,77 @@
       border-radius: 2rem;
       box-shadow: 0 16px 38px rgba(15, 23, 42, 0.12);
       border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 1.8rem 0 1.2rem;
+      color: var(--text-soft);
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .section-divider::before,
+    .section-divider::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: linear-gradient(90deg, transparent, rgba(0, 98, 65, 0.24), transparent);
+    }
+
+    .subway-card {
+      display: grid;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      border-radius: 1.8rem;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 242, 0.94));
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.06);
+    }
+
+    .subway-header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: var(--space-2);
+    }
+
+    .subway-note {
+      margin: 0.4rem 0 0;
+      color: var(--text-soft);
+      font-size: 1.2rem;
+      line-height: 1.45;
+    }
+
+    .subway-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      border-radius: 999px;
+      padding: 0.65rem 1rem;
+      background: rgba(0, 117, 74, 0.10);
+      color: var(--green-accent);
+      font-size: 1.15rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .subway-card .status-box {
+      min-height: 7rem;
+      background: rgba(0, 117, 74, 0.06);
+      border-color: rgba(0, 117, 74, 0.08);
+    }
+
+    .subway-card .status-box .label {
+      color: var(--text-soft);
+    }
+
+    .subway-card .status-box .value {
+      color: var(--green-house);
     }
 
     .badge {
@@ -1067,6 +1142,10 @@
 
       .result-grid,
       .hero-meta {
+        grid-template-columns: 1fr;
+      }
+
+      .result-grid-secondary {
         grid-template-columns: 1fr;
       }
 
@@ -1324,6 +1403,32 @@
         </div>
       </section>
 
+      <div class="container">
+        <div class="section-divider" aria-hidden="true"><span>4호선 실시간</span></div>
+        <section class="subway-card" aria-label="4호선 실시간 정보">
+          <div class="subway-header">
+            <div>
+              <h2 class="section-title" style="margin-bottom: 0.3rem;">4호선 실시간</h2>
+            </div>
+            <span class="subway-badge">과거 데이터 기반</span>
+          </div>
+          <div class="result-grid result-grid-secondary">
+            <div class="status-box">
+              <div class="label">4호선 남은 좌석수</div>
+              <div class="value" id="remainingSeatValue">-</div>
+            </div>
+            <div class="status-box">
+              <div class="label">서는 공간 밀도</div>
+              <div class="value" id="standingDensityValue">-</div>
+            </div>
+            <div class="status-box">
+              <div class="label">서 있는 사람 간격</div>
+              <div class="value" id="standingSpacingValue">-</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
       <section class="section" id="busMap">
         <div class="container">
           <div class="card bus-map-card">
@@ -1430,6 +1535,11 @@
     const BUS_CAPACITY_CUSTOM = 55;
     const BUS_CAPACITY_SINGLE_DECKER = 44;
     const BUS_CAPACITY_DOUBLE_DECKER = 70;
+    const SUBWAY_CAR_CAPACITY = 160;
+    const SUBWAY_SEAT_COUNT = 54;
+    const SUBWAY_SEAT_AREA_M2 = 15.5;
+    const SUBWAY_CAR_AREA_M2 = 62.4;
+    const SUBWAY_STANDING_AREA_M2 = SUBWAY_CAR_AREA_M2 - SUBWAY_SEAT_AREA_M2;
     const STATION_NAME_OVERRIDES = new Map([
       [38, "대공원고가교(미정차)"],
       [39, "과천동행정복지센터"],
@@ -1449,6 +1559,9 @@
     const arrivalValueEl = document.getElementById("arrivalValue");
     const boardingValueEl = document.getElementById("boardingValue");
     const waitTimeValueEl = document.getElementById("waitTimeValue");
+    const remainingSeatValueEl = document.getElementById("remainingSeatValue");
+    const standingDensityValueEl = document.getElementById("standingDensityValue");
+    const standingSpacingValueEl = document.getElementById("standingSpacingValue");
     const todayDateInputEl = document.getElementById("todayDateInput");
     const liveResetBtnEl = document.getElementById("liveResetBtn");
     const statusTimeLabelEl = document.getElementById("statusTimeLabel");
@@ -2167,6 +2280,58 @@
       return Number.isFinite(probability) ? `${label} (${probability}%)` : label;
     }
 
+    function calculateSubway4Metrics(congestionRatio) {
+      if (!Number.isFinite(congestionRatio)) {
+        return null;
+      }
+
+      const estimatedPassengers = (SUBWAY_CAR_CAPACITY * congestionRatio) / 100;
+      const remainingSeats = Math.max(SUBWAY_SEAT_COUNT - estimatedPassengers, 0);
+      const standingPassengers = Math.max(estimatedPassengers - SUBWAY_SEAT_COUNT, 0);
+      const standingAreaPerPerson = standingPassengers > 0 ? SUBWAY_STANDING_AREA_M2 / standingPassengers : null;
+      const standingSpacingMeters = standingAreaPerPerson ? Math.sqrt(standingAreaPerPerson) : null;
+      const densityPerM2 = standingPassengers > 0 ? standingPassengers / SUBWAY_STANDING_AREA_M2 : null;
+
+      return {
+        estimatedPassengers,
+        remainingSeats,
+        standingPassengers,
+        standingAreaPerPerson,
+        standingSpacingMeters,
+        densityPerM2,
+      };
+    }
+
+    function formatRemainingSeats(value) {
+      if (!Number.isFinite(value)) return "데이터 없음";
+      if (value <= 0) return "0석";
+      return `${Math.round(value)}석 남음`;
+    }
+
+    function formatStandingDensity(metrics) {
+      if (!metrics) return "데이터 없음";
+      if (!Number.isFinite(metrics.standingPassengers) || metrics.standingPassengers <= 0) {
+        return "좌석 여유";
+      }
+
+      const densityText = Number.isFinite(metrics.densityPerM2) ? `${metrics.densityPerM2.toFixed(1)}명/㎡` : "-";
+      const areaText = Number.isFinite(metrics.standingAreaPerPerson) ? `${metrics.standingAreaPerPerson.toFixed(2)}㎡` : "-";
+      return `${densityText} · 1명당 ${areaText}`;
+    }
+
+    function formatStandingSpacing(metrics) {
+      if (!metrics) return "데이터 없음";
+      if (!Number.isFinite(metrics.standingPassengers) || metrics.standingPassengers <= 0) {
+        return "비교적 여유";
+      }
+
+      if (!Number.isFinite(metrics.standingSpacingMeters)) return "-";
+      if (metrics.standingSpacingMeters < 1) {
+        return `약 ${Math.round(metrics.standingSpacingMeters * 100)}cm`;
+      }
+      return `약 ${metrics.standingSpacingMeters.toFixed(1)}m`;
+    }
+
     function refreshCurrentMinutes() {
       if (todayDateInputEl && !todayDateInputEl.value) {
         todayDateInputEl.value = formatDateLabel(new Date());
@@ -2290,11 +2455,15 @@
         const displayWaitPlan = liveMode
           ? estimateWaitPlan(congestionRatio, dayType, arrivalMinutes, busCapacityInfo.capacity)
           : null;
+        const subway4Metrics = calculateSubway4Metrics(congestionRatio);
 
       predictedPassengersEl.textContent = congestionRatio === null ? "데이터 없음" : `${formatNumber(congestionRatio)}%`;
       arrivalValueEl.textContent = liveMode ? formatArrivalMinutes(arrivalMinutes) : "";
       boardingValueEl.textContent = formatBoardingValue(boardingPlan);
       waitTimeValueEl.textContent = liveMode && displayWaitPlan ? formatWaitMinutes(displayWaitPlan.waitMinutes) : "";
+      if (remainingSeatValueEl) remainingSeatValueEl.textContent = formatRemainingSeats(subway4Metrics?.remainingSeats);
+      if (standingDensityValueEl) standingDensityValueEl.textContent = formatStandingDensity(subway4Metrics);
+      if (standingSpacingValueEl) standingSpacingValueEl.textContent = formatStandingSpacing(subway4Metrics);
       if (todayDateInputEl && !todayDateInputEl.value) todayDateInputEl.value = selectedDate;
       if (currentMinutesInput && !currentMinutesInput.value) currentMinutesInput.value = formatCurrentTime(selectedTimeMinutes);
     }
