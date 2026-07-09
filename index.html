@@ -572,6 +572,18 @@
       min-height: 1.2rem;
     }
 
+    .bus-map-node.bridge {
+      min-height: 2.6rem;
+      align-items: center;
+    }
+
+    .bus-map-node.bridge::before {
+      top: 1rem;
+      background: #fff7ed;
+      border-color: #fb923c;
+      box-shadow: 0 0 0 0.3rem rgba(251, 146, 60, 0.10);
+    }
+
     .bus-map-node.gap::before {
       top: 0.5rem;
       width: 0.6rem;
@@ -630,6 +642,21 @@
       color: transparent;
       box-shadow: none;
       margin-top: 0.9rem;
+    }
+
+    .bus-map-node.bridge .bus-map-marker {
+      width: 2.2rem;
+      height: 2.2rem;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #fb923c, #f97316);
+      font-size: 1.3rem;
+      box-shadow: 0 8px 16px rgba(249, 115, 22, 0.18);
+      margin-top: 0.3rem;
+    }
+
+    .bus-map-node.bridge .bus-map-stop {
+      border-bottom-style: dashed;
+      opacity: 0.85;
     }
 
     .bus-map-stop {
@@ -1644,6 +1671,8 @@
         const isNext = nextSeq === seq;
         const isThird = thirdSeq === seq;
         const isTarget = seq === TARGET_STATION_SEQ;
+        const hasNextStop = index < stops.length - 1;
+        const showBridgeBus = isCurrent || isNext || isThird;
         const stopName = isCurrent ? formatBusStationName(currentBus) : isNext ? formatBusStationName(nextBus) : isThird ? formatBusStationName(thirdBus) : getStationNameBySeq(seq);
         const busLabel = isCurrent || isNext || isThird
           ? `${BUS_ROUTE_NAME}(${stopName})`
@@ -1659,6 +1688,17 @@
             </div>
           </div>
         `);
+
+        if (showBridgeBus && hasNextStop) {
+          nodes.push(`
+            <div class="bus-map-node bridge" aria-hidden="true">
+              <div class="bus-map-marker">🚌</div>
+              <div class="bus-map-stop">
+                <div class="bus-map-stop-title">이동 중</div>
+              </div>
+            </div>
+          `);
+        }
       }
 
       busMapTrackEl.innerHTML = nodes.join("");
