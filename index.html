@@ -1545,6 +1545,8 @@
     const NAVER_MAP_ROUTE_URL = "https://map.naver.com/p/entry/bus-route/9596?c=16.00,0,0,0,dh";
     const TARGET_STATION_NAME = "사당역9번출구앞";
     const TARGET_STATION_SEQ = 43;
+    const BUS_TIMELINE_START_SEQ = 38;
+    const BUS_TIMELINE_END_SEQ = 44;
     const STATION_NAME_OVERRIDES = new Map([
       [38, "대공원고가교(미정차)"],
       [39, "과천동행정복지센터"],
@@ -1747,8 +1749,8 @@
         .map((value) => Number(value));
       const anchorSeqs = [];
 
-      for (let offset = -2; offset <= 2; offset += 1) {
-        anchorSeqs.push(TARGET_STATION_SEQ + offset);
+      for (let seq = BUS_TIMELINE_START_SEQ; seq <= BUS_TIMELINE_END_SEQ; seq += 1) {
+        anchorSeqs.push(seq);
       }
 
       for (const seq of seqs) {
@@ -1756,7 +1758,7 @@
       }
 
       return Array.from(new Set(anchorSeqs))
-        .filter((seq) => Number.isFinite(seq) && seq >= 0 && seq !== 47)
+        .filter((seq) => Number.isFinite(seq) && seq >= BUS_TIMELINE_START_SEQ && seq <= BUS_TIMELINE_END_SEQ)
         .sort((a, b) => a - b);
     }
 
