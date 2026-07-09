@@ -747,6 +747,32 @@
       color: var(--text);
     }
 
+    .naver-map-card {
+      display: grid;
+      gap: 1rem;
+      padding: 1.6rem;
+      border-radius: 1.8rem;
+      background: linear-gradient(135deg, rgba(0, 98, 65, 0.08), rgba(0, 117, 74, 0.14));
+      border: 1px solid rgba(0, 98, 65, 0.12);
+    }
+
+    .naver-map-card .section-title {
+      margin-bottom: 0;
+    }
+
+    .naver-map-card p {
+      margin: 0;
+      font-size: 1.3rem;
+      line-height: 1.45;
+      color: var(--text-soft);
+    }
+
+    .naver-map-actions {
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
     .result-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1168,6 +1194,19 @@
         </div>
       </section>
 
+      <section class="section" id="mapLink">
+        <div class="container">
+          <div class="naver-map-card">
+            <h2 class="section-title">네이버 지도</h2>
+            <p>사당역9번출구앞 위치를 네이버 지도 앱으로 바로 열어볼 수 있어요.</p>
+            <div class="naver-map-actions">
+              <a class="pill-btn primary" id="naverMapAppLink" href="#" target="_self" rel="noreferrer">네이버 지도 앱 열기</a>
+              <a class="pill-btn outline-dark" id="naverMapWebLink" href="#" target="_blank" rel="noreferrer">웹으로 보기</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
   </main>
   </div>
 
@@ -1529,6 +1568,8 @@
     const busMapTrackEl = document.getElementById("busMapTrack");
     const busRefreshBtn = document.getElementById("busRefreshBtn");
     const busSyncStatusEl = document.getElementById("busSyncStatus");
+    const naverMapAppLinkEl = document.getElementById("naverMapAppLink");
+    const naverMapWebLinkEl = document.getElementById("naverMapWebLink");
     let lastBusUpdatedAt = null;
     let lastTrackedBuses = { currentBus: null, nextBus: null, thirdBus: null, buses: [] };
     let busRefreshPromise = null;
@@ -1668,6 +1709,24 @@
         return "실시간 데이터가 비어 있음";
       }
       return "실시간 연동 실패";
+    }
+
+    function buildNaverMapUrls(placeName) {
+      const query = encodeURIComponent(placeName);
+      return {
+        app: `nmap://search?query=${query}`,
+        web: `https://map.naver.com/v5/search/${query}`,
+      };
+    }
+
+    function setupNaverMapLinks() {
+      const urls = buildNaverMapUrls(TARGET_STATION_NAME);
+      if (naverMapAppLinkEl) {
+        naverMapAppLinkEl.href = urls.app;
+      }
+      if (naverMapWebLinkEl) {
+        naverMapWebLinkEl.href = urls.web;
+      }
     }
 
     async function fetchBusPayload(url) {
@@ -2017,6 +2076,7 @@
       arrivalInput.value = "";
       refreshCurrentMinutes();
       refreshStatusTime();
+      setupNaverMapLinks();
       renderBusMap(null, null, null);
       setBusSyncStatus("실시간 연동 대기 중");
       predict();
