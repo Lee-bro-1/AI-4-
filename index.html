@@ -1579,7 +1579,8 @@
         return Number.isFinite(Number(seq)) ? getStationNameBySeq(seq) : "정류장 정보 없음";
       }
 
-      if (/^정류장\s*\d+$/i.test(text)) {
+      const numericMatch = text.match(/^(?:정류장\s*)?(\d+)(?:번)?$/i);
+      if (numericMatch) {
         return Number.isFinite(Number(seq)) ? getStationNameBySeq(seq) : text;
       }
 
