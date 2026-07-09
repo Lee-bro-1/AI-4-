@@ -1753,6 +1753,9 @@
       const normalized = locationList
         .map((item) => ({
           routeId: toNumber(item.routeId),
+          routeNo: toNumber(item.routeNo),
+          routeNm: toNumber(item.routeNm),
+          rtId: toNumber(item.rtId),
           stationId: toNumber(item.stationId),
           stationSeq: toNumber(item.stationSeq),
           stationName: item.stationName ?? item.stationNm ?? item.bsNm ?? item.stopName ?? item.station ?? null,
@@ -1761,10 +1764,45 @@
           stateCd: toNumber(item.stateCd),
           plateNo: item.plateNo ?? "-",
         }))
-        .filter((item) => item.routeId === Number(BUS_ROUTE_ID) && item.stationSeq !== null);
+        .filter((item) => {
+          const routeMatches = [item.routeId, item.routeNo, item.routeNm, item.rtId]
+            .some((value) => Number.isFinite(value) && String(value) === String(BUS_ROUTE_ID));
+          return item.stationSeq !== null && (routeMatches || !Number.isFinite(item.routeId));
+        });
 
       if (!normalized.length) {
-        return { currentBus: null, nextBus: null, thirdBus: null, buses: [] };
+        const fallback = locationList
+          .map((item) => ({
+            stationId: toNumber(item.stationId),
+            stationSeq: toNumber(item.stationSeq),
+            stationName: item.stationName ?? item.stationNm ?? item.bsNm ?? item.stopName ?? item.station ?? null,
+            remainSeatCnt: toNumber(item.remainSeatCnt),
+            crowded: toNumber(item.crowded),
+            stateCd: toNumber(item.stateCd),
+            plateNo: item.plateNo ?? "-",
+          }))
+          .filter((item) => item.stationSeq !== null);
+
+        if (!fallback.length) {
+          return { currentBus: null, nextBus: null, thirdBus: null, buses: [] };
+        }
+
+        const sortedFallback = fallback.sort((a, b) => {
+          const distanceA = Math.abs(TARGET_STATION_SEQ - a.stationSeq);
+          const distanceB = Math.abs(TARGET_STATION_SEQ - b.stationSeq);
+          if (distanceA !== distanceB) return distanceA - distanceB;
+          const aheadA = a.stationSeq <= TARGET_STATION_SEQ ? 0 : 1;
+          const aheadB = b.stationSeq <= TARGET_STATION_SEQ ? 0 : 1;
+          if (aheadA !== aheadB) return aheadA - aheadB;
+          return b.stationSeq - a.stationSeq;
+        });
+
+        return {
+          currentBus: sortedFallback[0] ?? null,
+          nextBus: sortedFallback[1] ?? null,
+          thirdBus: sortedFallback[2] ?? null,
+          buses: sortedFallback.slice(0, 3),
+        };
       }
 
       const sorted = normalized.sort((a, b) => {
@@ -1814,7 +1852,11 @@
       }
       setupNaverMapLinks();
       renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus, trackedBuses.thirdBus);
-      setBusSyncStatus(`실시간 연동됨 · <strong>${formatBusUpdatedAt(lastBusUpdatedAt)}</strong>`);
+      if (trackedBuses.buses?.length) {
+        setBusSyncStatus(`실시간 연동됨 · <strong>${formatBusUpdatedAt(lastBusUpdatedAt)}</strong>`);
+      } else {
+        setBusSyncStatus(`실시간 데이터가 비어 있음 · <strong>마지막 위치 표시 중</strong>`);
+      }
 
       const bus = trackedBuses.currentBus ?? trackedBuses.nextBus;
       if (bus) {
@@ -1823,6 +1865,15 @@
           arrivalInput.value = String(minutes);
           return bus;
         }
+      }
+
+      if (lastTrackedBuses.currentBus || lastTrackedBuses.nextBus) {
+        const fallbackBus = lastTrackedBuses.currentBus ?? lastTrackedBuses.nextBus;
+        const fallbackMinutes = estimateArrivalMinutesFromBus(fallbackBus, getCurrentDayType(), getCurrentMinutes());
+        if (Number.isFinite(fallbackMinutes)) {
+          arrivalInput.value = String(fallbackMinutes);
+        }
+        return fallbackBus;
       }
 
       throw new Error("실시간 위치 정보가 비어 있습니다.");
