@@ -371,7 +371,13 @@
 
     .form {
       display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: var(--space-2);
+    }
+
+    .predict-note {
+      margin-top: 0.2rem;
+      grid-column: 1 / -1;
     }
 
     .field {
@@ -874,7 +880,7 @@
 
     .result-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: var(--space-2);
     }
 
@@ -1184,7 +1190,7 @@
       }
 
       .result-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
       }
 
       .bus-map-layout {
@@ -1268,13 +1274,14 @@
               <h2 class="section-title">실시간 확인</h2>
               <div class="form">
                 <label class="field">
-                  <span class="field-label">오늘 날짜</span>
-                  <input class="field-input" id="todayDateInput" type="text" readonly />
+                  <span class="field-label">날짜</span>
+                  <input class="field-input" id="todayDateInput" type="date" />
                 </label>
                 <label class="field">
-                  <span class="field-label">현재 시각</span>
-                  <input class="field-input" id="currentMinutesInput" type="text" readonly />
+                  <span class="field-label">시간</span>
+                  <input class="field-input" id="currentMinutesInput" type="time" step="600" />
                 </label>
+                <p class="helper predict-note">선택한 날짜와 시간에 맞춰 혼잡도와 탑승 가능성을 바로 계산합니다. 실시간 시각은 상단 상태바에서 계속 보여줘요.</p>
                 <input id="arrivalInput" type="hidden" value="" />
               </div>
 
@@ -1287,19 +1294,11 @@
                     <button class="hint-toggle" type="button" id="congestionHintBtn" aria-expanded="false" aria-controls="congestionHintText">설명</button>
                   </div>
                     <div class="value" id="predictedPassengers">-</div>
-                    <div class="status-hint" id="congestionHintText" hidden>혼잡도는 현재 시간대의 버스가 얼마나 붐빌지 예상한 값이에요. 예를 들어 130%면 정원 100명짜리 버스에 130명 수준이 몰린 상태라서, 100명이 다 타고 나면 줄에 대략 30명 정도가 남는 느낌으로 보면 됩니다. 탑승 가능 여부와 퍼센트는 이 혼잡도와 다음 버스까지 남은 시간을 함께 반영해 계산합니다.</div>
+                    <div class="status-hint" id="congestionHintText" hidden>혼잡도는 선택한 날짜와 시간대의 데이터를 바탕으로 예상한 값이에요. 예를 들어 130%면 정원 100명짜리 버스에 130명 수준이 몰린 상태라서, 100명이 다 타고 나면 줄에 대략 30명 정도가 남는 느낌으로 보면 됩니다. 탑승 가능성은 혼잡도와 평일 5분, 주말 10분 기준의 남은 시간을 함께 반영해 계산합니다.</div>
                   </div>
                   <div class="status-box">
-                  <div class="label">남은 시간</div>
-                    <div class="value" id="arrivalValue">-</div>
-                  </div>
-                  <div class="status-box">
-                  <div class="label">탑승</div>
+                  <div class="label">탑승 가능성</div>
                     <div class="value" id="boardingValue">-</div>
-                  </div>
-                  <div class="status-box">
-                  <div class="label">예상 대기 시간</div>
-                    <div class="value" id="waitTimeValue">-</div>
                   </div>
                 </div>
               </div>
@@ -1426,9 +1425,7 @@
     const currentMinutesInput = document.getElementById("currentMinutesInput");
     const arrivalInput = document.getElementById("arrivalInput");
     const predictedPassengersEl = document.getElementById("predictedPassengers");
-    const arrivalValueEl = document.getElementById("arrivalValue");
     const boardingValueEl = document.getElementById("boardingValue");
-    const waitTimeValueEl = document.getElementById("waitTimeValue");
     const todayDateInputEl = document.getElementById("todayDateInput");
     const statusTimeLabelEl = document.getElementById("statusTimeLabel");
     const busMapTrackEl = document.getElementById("busMapTrack");
@@ -1737,27 +1734,45 @@
       return Math.min(max, Math.max(min, value));
     }
 
-    function parseArrivalMinutes() {
-      const minutes = Number(arrivalInput.value);
-      return Number.isFinite(minutes) && minutes >= 0 ? minutes : null;
+    function getSelectedDateValue() {
+      if (todayDateInputEl?.value) return todayDateInputEl.value;
+      return formatDateLabel(new Date());
     }
 
-    function estimateWaitPlan(congestionRatio, dayType, arrivalMinutes) {
-      if (!Number.isFinite(congestionRatio) || !Number.isFinite(arrivalMinutes)) return null;
+    function getSelectedTimeMinutes() {
+      if (currentMinutesInput?.value) {
+        const [hourText, minuteText] = currentMinutesInput.value.split(":");
+        const hour = Number(hourText);
+        const minute = Number(minuteText);
+        if (Number.isFinite(hour) && Number.isFinite(minute)) {
+          return clamp((hour * 60) + minute, 0, 24 * 60 - 1);
+        }
+      }
+
+      return getCurrentMinutes();
+    }
+
+    function getReferenceRemainingMinutes(dayType) {
+      return isWeekdayName(dayType) ? 5 : 10;
+    }
+
+    function estimateBoardingPlan(congestionRatio, dayType) {
+      if (!Number.isFinite(congestionRatio)) return null;
       const headwayMinutes = getHeadwayMinutesForDayType(dayType);
+      const referenceRemainingMinutes = getReferenceRemainingMinutes(dayType);
       const congestionPressure = clamp((congestionRatio - 60) / 60, 0, 1);
-      const arrivalPressure = clamp((headwayMinutes - arrivalMinutes) / headwayMinutes, 0, 1);
-      const boardingPressure = congestionPressure * (0.7 + (arrivalPressure * 0.3));
+      const timePressure = clamp(1 - (referenceRemainingMinutes / headwayMinutes), 0, 1);
+      const boardingPressure = clamp((congestionPressure * 0.75) + (timePressure * 0.25), 0, 1);
       const canBoardNextBus = boardingPressure < 0.45;
-      const waitMinutes = arrivalMinutes <= 0 ? 0 : canBoardNextBus ? arrivalMinutes : arrivalMinutes + Math.round(headwayMinutes / 2);
 
       return {
         canBoardNextBus,
         boardingPressure,
-        waitMinutes,
+        boardingProbability: (1 - boardingPressure) * 100,
         headwayMinutes,
         congestionPressure,
-        arrivalPressure
+        referenceRemainingMinutes,
+        timePressure
       };
     }
 
@@ -2002,13 +2017,18 @@
 
     function formatBoardingValue(plan) {
       if (!plan) return "데이터 없음";
-      const probability = roundUpToNearestTen((1 - plan.boardingPressure) * 100);
+      const probability = roundUpToNearestTen(plan.boardingProbability);
       const label = plan.canBoardNextBus ? "가능" : "어려움";
       return Number.isFinite(probability) ? `${label} (${probability}%)` : label;
     }
 
     function refreshCurrentMinutes() {
-      currentMinutesInput.value = formatCurrentTime(getCurrentMinutes());
+      if (todayDateInputEl && !todayDateInputEl.value) {
+        todayDateInputEl.value = formatDateLabel(new Date());
+      }
+      if (currentMinutesInput && !currentMinutesInput.value) {
+        currentMinutesInput.value = formatCurrentTime(getCurrentMinutes());
+      }
     }
 
     function refreshStatusTime() {
@@ -2088,27 +2108,23 @@
     }
 
     function predict() {
-      const now = new Date();
-      const selectedHour = now.getHours();
-      const selectedDate = formatDateLabel(now);
-      const dayType = getCurrentDayType();
+      const selectedDate = getSelectedDateValue();
+      const selectedTimeMinutes = getSelectedTimeMinutes();
+      const selectedHour = Math.floor(selectedTimeMinutes / 60);
+      const dayType = getDayTypeForDate(selectedDate);
       const activeSources = getSourcesForDayType(dayType);
-      const arrivalMinutes = parseArrivalMinutes();
       const normalizedValues = activeSources.map((source) => {
         const value = getValueByHour(source, selectedHour);
         if (!Number.isFinite(value)) return null;
         return source.unit === "명" ? (value / 70) * 100 : value;
       }).filter((value) => Number.isFinite(value));
       const congestionRatio = normalizedValues.length > 0 ? normalizedValues.reduce((sum, value) => sum + value, 0) / normalizedValues.length : null;
-      const waitPlan = estimateWaitPlan(congestionRatio, dayType, arrivalMinutes);
+      const waitPlan = estimateBoardingPlan(congestionRatio, dayType);
 
       predictedPassengersEl.textContent = congestionRatio === null ? "데이터 없음" : `${formatNumber(congestionRatio)}%`;
-      arrivalValueEl.textContent = formatArrivalMinutes(arrivalMinutes);
       boardingValueEl.textContent = formatBoardingValue(waitPlan);
-      waitTimeValueEl.textContent = waitPlan ? formatWaitMinutes(waitPlan.waitMinutes) : "데이터 없음";
-      if (todayDateInputEl) {
-        todayDateInputEl.value = selectedDate;
-      }
+      if (todayDateInputEl && !todayDateInputEl.value) todayDateInputEl.value = selectedDate;
+      if (currentMinutesInput && !currentMinutesInput.value) currentMinutesInput.value = formatCurrentTime(selectedTimeMinutes);
     }
 
     function initialize() {
@@ -2120,8 +2136,15 @@
       renderBusMap(null, null, null);
       setBusSyncStatus("대기 중");
       predict();
-      setInterval(refreshCurrentMinutes, 1000);
       setInterval(refreshStatusTime, 1000);
+      if (todayDateInputEl) {
+        todayDateInputEl.addEventListener("change", predict);
+        todayDateInputEl.addEventListener("input", predict);
+      }
+      if (currentMinutesInput) {
+        currentMinutesInput.addEventListener("change", predict);
+        currentMinutesInput.addEventListener("input", predict);
+      }
       if (congestionHintBtnEl) {
         congestionHintBtnEl.addEventListener("click", () => {
           const isVisible = congestionHintTextEl ? congestionHintTextEl.hidden : true;
