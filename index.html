@@ -497,7 +497,11 @@
       position: relative;
       display: grid;
       gap: 1rem;
-      padding: 0.4rem 0 0.4rem 3.2rem;
+      min-height: 18rem;
+      padding: 1.2rem 1.2rem 1.2rem 3.2rem;
+      border-radius: 1.8rem;
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid rgba(0, 0, 0, 0.04);
     }
 
     .bus-map-track::before {
@@ -1126,7 +1130,14 @@
                 <button class="pill-btn outline-dark bus-map-refresh" type="button" id="busRefreshBtn">지금 갱신</button>
               </div>
             </div>
-            <div class="bus-map-track" id="busMapTrack" aria-label="7800 버스 위치 그림"></div>
+            <div class="bus-map-track" id="busMapTrack" aria-label="7800 버스 위치 그림">
+              <div class="bus-map-node gap">
+                <div class="bus-map-marker">?</div>
+                <div class="bus-map-stop">
+                  <div class="bus-map-stop-title">7800</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1637,8 +1648,8 @@
     function renderBusTimeline(currentBus, nextBus) {
       if (!busMapTrackEl) return;
 
-      const currentSeq = Number.isFinite(currentBus?.stationSeq) ? Number(currentBus.stationSeq) : null;
-      const nextSeq = Number.isFinite(nextBus?.stationSeq) ? Number(nextBus.stationSeq) : null;
+      const currentSeq = Number.isFinite(Number(currentBus?.stationSeq)) ? Number(currentBus.stationSeq) : null;
+      const nextSeq = Number.isFinite(Number(nextBus?.stationSeq)) ? Number(nextBus.stationSeq) : null;
       const targetSeq = Number(TARGET_STATION_SEQ);
       const formatBusLabel = (bus) => {
         const stationName = formatBusStationName(bus);
