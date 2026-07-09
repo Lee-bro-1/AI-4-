@@ -1118,58 +1118,6 @@
     </header>
 
     <main id="top">
-      <section class="hero section">
-        <div class="container">
-          <div class="hero-grid">
-            <article class="hero-copy">
-              <div class="eyebrow">실시간 버스 확인</div>
-              <h1>버스 탈 수 있을까?</h1>
-              <p class="lead">
-                실시간 위치와 혼잡도를 바로 보여줍니다.
-              </p>
-
-              <div class="hero-meta" aria-label="핵심 정보">
-                <div class="meta-card">
-                  <div class="meta-label">대상 정류장</div>
-                  <div class="meta-value">사당역9번출구앞</div>
-                </div>
-                <div class="meta-card">
-                  <div class="meta-label">오늘 날짜</div>
-                  <div class="meta-value" id="todayDateLabel">-</div>
-                </div>
-                <div class="meta-card">
-                  <div class="meta-label">오늘 구분</div>
-                  <div class="meta-value" id="todayTypeLabel">-</div>
-                </div>
-              </div>
-            </article>
-
-            <aside class="hero-card">
-              <h2>지금 타도 되는지 바로 보여줍니다.</h2>
-              <p>7800의 실시간 위치를 한눈에 확인하세요.</p>
-              <div class="route-box">
-                <div class="route-line">
-                  <strong>노선</strong>
-                  <span>7800번 버스</span>
-                </div>
-                <div class="route-line">
-                  <strong>구조</strong>
-                  <span>남태령역(중) → 사당역(중) → 회차 → 사당역사거리(미정차) → 사당역9번출구앞 → 남현동(미정차)</span>
-                </div>
-                <div class="route-line">
-                  <strong>대상</strong>
-                  <span>사당역9번출구앞</span>
-                </div>
-                <div class="route-line">
-                  <strong>배차</strong>
-                  <span>평일 10분 · 주말 20분</span>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </div>
-      </section>
-
       <section class="section" id="summary">
         <div class="container">
           <div class="main">
@@ -1180,15 +1128,15 @@
                   <span class="field-label">현재 시각</span>
                   <input class="field-input" id="currentMinutesInput" type="text" readonly />
                 </label>
+                <label class="field">
+                  <span class="field-label">오늘 날짜</span>
+                  <input class="field-input" id="todayDateInput" type="text" readonly />
+                </label>
                 <input id="arrivalInput" type="hidden" value="" />
               </div>
-              <p class="helper" style="margin-top: 1.6rem;">
-                실시간 위치를 받아 자동으로 계산합니다.
-              </p>
 
               <div class="status-band" style="margin-top: 2rem; border-radius: 1.8rem;">
                 <span class="badge low">실시간 결과</span>
-                <p class="message">혼잡도와 탑승 가능 여부를 바로 보여줍니다.</p>
                 <div class="result-grid">
                   <div class="status-box">
                   <div class="label">혼잡도</div>
@@ -1603,8 +1551,7 @@
     const arrivalValueEl = document.getElementById("arrivalValue");
     const boardingValueEl = document.getElementById("boardingValue");
     const waitTimeValueEl = document.getElementById("waitTimeValue");
-    const todayDateLabelEl = document.getElementById("todayDateLabel");
-    const todayTypeLabelEl = document.getElementById("todayTypeLabel");
+    const todayDateInputEl = document.getElementById("todayDateInput");
     const statusTimeLabelEl = document.getElementById("statusTimeLabel");
     const busMapTrackEl = document.getElementById("busMapTrack");
     const busRefreshBtn = document.getElementById("busRefreshBtn");
@@ -2053,8 +2000,9 @@
       arrivalValueEl.textContent = formatArrivalMinutes(arrivalMinutes);
       boardingValueEl.textContent = formatBoardingValue(waitPlan);
       waitTimeValueEl.textContent = waitPlan ? formatWaitMinutes(waitPlan.waitMinutes) : "데이터 없음";
-      todayDateLabelEl.textContent = selectedDate;
-      todayTypeLabelEl.textContent = dayType;
+      if (todayDateInputEl) {
+        todayDateInputEl.value = selectedDate;
+      }
     }
 
     function initialize() {
