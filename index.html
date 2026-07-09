@@ -659,6 +659,10 @@
       opacity: 0.85;
     }
 
+    .bus-map-node.bridge .bus-map-stop-title {
+      font-size: 1.45rem;
+    }
+
     .bus-map-stop {
       display: grid;
       gap: 0.3rem;
@@ -1674,17 +1678,14 @@
         const hasNextStop = index < stops.length - 1;
         const showBridgeBus = isCurrent || isNext || isThird;
         const stopName = isCurrent ? formatBusStationName(currentBus) : isNext ? formatBusStationName(nextBus) : isThird ? formatBusStationName(thirdBus) : getStationNameBySeq(seq);
-        const busLabel = isCurrent || isNext || isThird
-          ? `${BUS_ROUTE_NAME}(${stopName})`
-          : stopName;
         const stopClass = isCurrent ? "current" : isNext ? "next" : isThird ? "third" : isTarget ? "target" : "";
-        const markerIcon = isCurrent || isNext || isThird ? "🚌" : isTarget ? "🎯" : "•";
+        const markerIcon = isTarget ? "🎯" : "•";
 
         nodes.push(`
           <div class="bus-map-node ${stopClass}">
             <div class="bus-map-marker">${markerIcon}</div>
             <div class="bus-map-stop ${stopClass}">
-              <div class="bus-map-stop-title">${busLabel}</div>
+              <div class="bus-map-stop-title">${stopName}</div>
             </div>
           </div>
         `);
@@ -1692,9 +1693,9 @@
         if (showBridgeBus && hasNextStop) {
           nodes.push(`
             <div class="bus-map-node bridge" aria-hidden="true">
-              <div class="bus-map-marker">🚌</div>
+              <div class="bus-map-marker">${BUS_ROUTE_NAME}</div>
               <div class="bus-map-stop">
-                <div class="bus-map-stop-title">이동 중</div>
+                <div class="bus-map-stop-title">${BUS_ROUTE_NAME}</div>
               </div>
             </div>
           `);
