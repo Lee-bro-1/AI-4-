@@ -1306,8 +1306,16 @@
                     <div class="status-hint" id="congestionHintText" hidden>혼잡도는 선택한 날짜와 시간대의 데이터를 바탕으로 예상한 값이에요. 예를 들어 130%면 정원 100명짜리 버스에 130명 수준이 몰린 상태라서, 100명이 다 타고 나면 줄에 대략 30명 정도가 남는 느낌으로 보면 됩니다. 탑승 가능성은 이 혼잡도를 기준으로 함께 계산합니다.</div>
                   </div>
                   <div class="status-box">
+                  <div class="label">남은 시간</div>
+                    <div class="value" id="arrivalValue">-</div>
+                  </div>
+                  <div class="status-box">
                   <div class="label">탑승 가능성</div>
                     <div class="value" id="boardingValue">-</div>
+                  </div>
+                  <div class="status-box">
+                  <div class="label">예상 대기 시간</div>
+                    <div class="value" id="waitTimeValue">-</div>
                   </div>
                 </div>
               </div>
@@ -1434,7 +1442,9 @@
     const currentMinutesInput = document.getElementById("currentMinutesInput");
     const arrivalInput = document.getElementById("arrivalInput");
     const predictedPassengersEl = document.getElementById("predictedPassengers");
+    const arrivalValueEl = document.getElementById("arrivalValue");
     const boardingValueEl = document.getElementById("boardingValue");
+    const waitTimeValueEl = document.getElementById("waitTimeValue");
     const todayDateInputEl = document.getElementById("todayDateInput");
     const liveResetBtnEl = document.getElementById("liveResetBtn");
     const statusTimeLabelEl = document.getElementById("statusTimeLabel");
@@ -1744,6 +1754,11 @@
       return Math.min(max, Math.max(min, value));
     }
 
+    function parseArrivalMinutes() {
+      const minutes = Number(arrivalInput.value);
+      return Number.isFinite(minutes) && minutes >= 0 ? minutes : null;
+    }
+
     function getSelectedDateValue() {
       if (todayDateInputEl?.value) return todayDateInputEl.value;
       return formatDateLabel(new Date());
@@ -1773,6 +1788,25 @@
         boardingPressure,
         boardingProbability: (1 - boardingPressure) * 100,
         congestionPressure
+      };
+    }
+
+    function estimateWaitPlan(congestionRatio, dayType, arrivalMinutes) {
+      if (!Number.isFinite(congestionRatio) || !Number.isFinite(arrivalMinutes)) return null;
+      const headwayMinutes = getHeadwayMinutesForDayType(dayType);
+      const congestionPressure = clamp((congestionRatio - 60) / 60, 0, 1);
+      const arrivalPressure = clamp((headwayMinutes - arrivalMinutes) / headwayMinutes, 0, 1);
+      const boardingPressure = congestionPressure * (0.7 + (arrivalPressure * 0.3));
+      const canBoardNextBus = boardingPressure < 0.45;
+      const waitMinutes = arrivalMinutes <= 0 ? 0 : canBoardNextBus ? arrivalMinutes : arrivalMinutes + Math.round(headwayMinutes / 2);
+
+      return {
+        canBoardNextBus,
+        boardingPressure,
+        waitMinutes,
+        headwayMinutes,
+        congestionPressure,
+        arrivalPressure
       };
     }
 
@@ -2124,6 +2158,7 @@
       const selectedHour = Math.floor(selectedTimeMinutes / 60);
       const dayType = getDayTypeForDate(selectedDate);
       const activeSources = getSourcesForDayType(dayType);
+      const arrivalMinutes = parseArrivalMinutes();
       const normalizedValues = activeSources.map((source) => {
         const value = getValueByHour(source, selectedHour);
         if (!Number.isFinite(value)) return null;
@@ -2131,9 +2166,12 @@
       }).filter((value) => Number.isFinite(value));
       const congestionRatio = normalizedValues.length > 0 ? normalizedValues.reduce((sum, value) => sum + value, 0) / normalizedValues.length : null;
       const waitPlan = estimateBoardingPlan(congestionRatio);
+      const displayWaitPlan = estimateWaitPlan(congestionRatio, dayType, arrivalMinutes);
 
       predictedPassengersEl.textContent = congestionRatio === null ? "데이터 없음" : `${formatNumber(congestionRatio)}%`;
+      arrivalValueEl.textContent = formatArrivalMinutes(arrivalMinutes);
       boardingValueEl.textContent = formatBoardingValue(waitPlan);
+      waitTimeValueEl.textContent = displayWaitPlan ? formatWaitMinutes(displayWaitPlan.waitMinutes) : "데이터 없음";
       if (todayDateInputEl && !todayDateInputEl.value) todayDateInputEl.value = selectedDate;
       if (currentMinutesInput && !currentMinutesInput.value) currentMinutesInput.value = formatCurrentTime(selectedTimeMinutes);
     }
