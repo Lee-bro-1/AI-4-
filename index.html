@@ -380,6 +380,14 @@
       grid-column: 1 / -1;
     }
 
+    .predict-live-btn {
+      grid-column: 1 / -1;
+      justify-self: start;
+      min-height: 3.4rem;
+      padding: 0.7rem 1.2rem;
+      font-size: 1.25rem;
+    }
+
     .field {
       display: grid;
       gap: 0.6rem;
@@ -1282,6 +1290,7 @@
                   <input class="field-input" id="currentMinutesInput" type="time" step="600" />
                 </label>
                 <p class="helper predict-note">선택한 날짜와 시간에 맞춰 혼잡도와 탑승 가능성을 바로 계산합니다. 실시간 시각은 상단 상태바에서 계속 보여줘요.</p>
+                <button class="pill-btn outline-dark predict-live-btn" type="button" id="liveResetBtn">실시간으로 되돌리기</button>
                 <input id="arrivalInput" type="hidden" value="" />
               </div>
 
@@ -1427,6 +1436,7 @@
     const predictedPassengersEl = document.getElementById("predictedPassengers");
     const boardingValueEl = document.getElementById("boardingValue");
     const todayDateInputEl = document.getElementById("todayDateInput");
+    const liveResetBtnEl = document.getElementById("liveResetBtn");
     const statusTimeLabelEl = document.getElementById("statusTimeLabel");
     const busMapTrackEl = document.getElementById("busMapTrack");
     const busRefreshBtn = document.getElementById("busRefreshBtn");
@@ -2031,6 +2041,17 @@
       }
     }
 
+    function resetToLive() {
+      const now = new Date();
+      if (todayDateInputEl) {
+        todayDateInputEl.value = formatDateLabel(now);
+      }
+      if (currentMinutesInput) {
+        currentMinutesInput.value = formatCurrentTime(now.getHours() * 60 + now.getMinutes());
+      }
+      predict();
+    }
+
     function refreshStatusTime() {
       if (!statusTimeLabelEl) return;
       const now = new Date();
@@ -2144,6 +2165,9 @@
       if (currentMinutesInput) {
         currentMinutesInput.addEventListener("change", predict);
         currentMinutesInput.addEventListener("input", predict);
+      }
+      if (liveResetBtnEl) {
+        liveResetBtnEl.addEventListener("click", resetToLive);
       }
       if (congestionHintBtnEl) {
         congestionHintBtnEl.addEventListener("click", () => {
