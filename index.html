@@ -595,6 +595,10 @@
       background: #f59e0b;
     }
 
+    .bus-map-node.third .bus-map-marker {
+      background: #3b82f6;
+    }
+
     .bus-map-node.target .bus-map-marker {
       background: var(--green-accent);
     }
@@ -1500,7 +1504,7 @@
     const BUS_ROUTE_ID = "200000150";
     const BUS_ROUTE_NAME = "7800";
     const TARGET_STATION_NAME = "사당역9번출구앞";
-    const TARGET_STATION_SEQ = 41;
+    const TARGET_STATION_SEQ = 43;
     const STATION_NAME_OVERRIDES = new Map([
       [38, "대공원고가교(미정차)"],
       [39, "과천동행정복지센터"],
@@ -1524,7 +1528,7 @@
     const busRefreshBtn = document.getElementById("busRefreshBtn");
     const busSyncStatusEl = document.getElementById("busSyncStatus");
     let lastBusUpdatedAt = null;
-    let lastTrackedBuses = { currentBus: null, nextBus: null };
+    let lastTrackedBuses = { currentBus: null, nextBus: null, thirdBus: null, buses: [] };
     let busRefreshPromise = null;
 
     function pad(value) {
@@ -1684,8 +1688,8 @@
       return JSON.parse(text);
     }
 
-    function buildBusTimelineStops(currentBus, nextBus) {
-      const seqs = [currentBus?.stationSeq, nextBus?.stationSeq]
+    function buildBusTimelineStops(currentBus, nextBus, thirdBus) {
+      const seqs = [currentBus?.stationSeq, nextBus?.stationSeq, thirdBus?.stationSeq]
         .filter((value) => Number.isFinite(Number(value)))
         .map((value) => Number(value));
       const targetSeq = Number(TARGET_STATION_SEQ);
@@ -1702,13 +1706,14 @@
         .sort((a, b) => a - b);
     }
 
-    function renderBusTimeline(currentBus, nextBus) {
+    function renderBusTimeline(currentBus, nextBus, thirdBus) {
       if (!busMapTrackEl) return;
 
       const currentSeq = Number.isFinite(Number(currentBus?.stationSeq)) ? Number(currentBus.stationSeq) : null;
       const nextSeq = Number.isFinite(Number(nextBus?.stationSeq)) ? Number(nextBus.stationSeq) : null;
+      const thirdSeq = Number.isFinite(Number(thirdBus?.stationSeq)) ? Number(thirdBus.stationSeq) : null;
       const targetSeq = Number(TARGET_STATION_SEQ);
-      const stops = buildBusTimelineStops(currentBus, nextBus);
+      const stops = buildBusTimelineStops(currentBus, nextBus, thirdBus);
       const nodes = [];
 
       if (!stops.length) {
@@ -1739,15 +1744,16 @@
 
         const isCurrent = currentSeq === seq;
         const isNext = nextSeq === seq;
+        const isThird = thirdSeq === seq;
         const isTarget = targetSeq === seq;
-        const stopName = isCurrent ? formatBusStationName(currentBus) : isNext ? formatBusStationName(nextBus) : getStationNameBySeq(seq);
-        const busLabel = isCurrent || isNext
+        const stopName = isCurrent ? formatBusStationName(currentBus) : isNext ? formatBusStationName(nextBus) : isThird ? formatBusStationName(thirdBus) : getStationNameBySeq(seq);
+        const busLabel = isCurrent || isNext || isThird
           ? `${BUS_ROUTE_NAME}(${stopName})`
           : isTarget
             ? `${BUS_ROUTE_NAME}(${stopName})`
             : stopName;
-        const stopClass = isCurrent ? "current" : isNext ? "next" : isTarget ? "target" : "";
-        const markerIcon = isCurrent || isNext ? "🚌" : isTarget ? "📍" : "•";
+        const stopClass = isCurrent ? "current" : isNext ? "next" : isThird ? "third" : isTarget ? "target" : "";
+        const markerIcon = isCurrent || isNext || isThird ? "🚌" : isTarget ? "📍" : "•";
 
         nodes.push(`
           <div class="bus-map-node ${stopClass}">
@@ -1762,8 +1768,8 @@
       busMapTrackEl.innerHTML = nodes.join("");
     }
 
-    function renderBusMap(currentBus, nextBus) {
-      renderBusTimeline(currentBus, nextBus);
+    function renderBusMap(currentBus, nextBus, thirdBus) {
+      renderBusTimeline(currentBus, nextBus, thirdBus);
     }
 
     function getDayTypeForDate(dateValue) {
@@ -1826,7 +1832,7 @@
 
     function chooseTrackedBuses(locationList) {
       if (!Array.isArray(locationList) || locationList.length === 0) {
-        return { currentBus: null, nextBus: null };
+        return { currentBus: null, nextBus: null, thirdBus: null, buses: [] };
       }
 
       const normalized = locationList
@@ -1843,7 +1849,7 @@
         .filter((item) => item.routeId === Number(BUS_ROUTE_ID) && item.stationSeq !== null);
 
       if (!normalized.length) {
-        return { currentBus: null, nextBus: null };
+        return { currentBus: null, nextBus: null, thirdBus: null, buses: [] };
       }
 
       const sorted = normalized.sort((a, b) => {
@@ -1861,6 +1867,8 @@
       return {
         currentBus: sorted[0] ?? null,
         nextBus: sorted[1] ?? null,
+        thirdBus: sorted[2] ?? null,
+        buses: sorted.slice(0, 3),
       };
     }
 
@@ -1886,10 +1894,10 @@
       const busLocationList = extractBusLocationList(payload);
       const trackedBuses = chooseTrackedBuses(busLocationList);
       lastBusUpdatedAt = new Date();
-      if (trackedBuses.currentBus || trackedBuses.nextBus) {
+      if (trackedBuses.buses?.length) {
         lastTrackedBuses = trackedBuses;
       }
-      renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus);
+      renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus, trackedBuses.thirdBus);
       setBusSyncStatus(`실시간 연동됨 · <strong>${formatBusUpdatedAt(lastBusUpdatedAt)}</strong>`);
 
       const bus = trackedBuses.currentBus ?? trackedBuses.nextBus;
@@ -1928,7 +1936,7 @@
             arrivalInput.value = String(fallbackMinutes);
           }
 
-          renderBusMap(lastTrackedBuses.currentBus, lastTrackedBuses.nextBus);
+          renderBusMap(lastTrackedBuses.currentBus, lastTrackedBuses.nextBus, lastTrackedBuses.thirdBus);
           setBusSyncStatus(`${describeBusSyncError(error)} · <strong>마지막 위치 표시 중</strong>`);
           predict();
           return null;
@@ -2007,7 +2015,7 @@
       arrivalInput.value = "";
       refreshCurrentMinutes();
       refreshStatusTime();
-      renderBusMap(null, null);
+      renderBusMap(null, null, null);
       setBusSyncStatus("실시간 연동 대기 중");
       predict();
       setInterval(refreshCurrentMinutes, 1000);
