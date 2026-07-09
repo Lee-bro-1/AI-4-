@@ -861,6 +861,41 @@
       margin-bottom: 0.6rem;
     }
 
+    .status-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .hint-toggle {
+      border: 0;
+      background: rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.86);
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      font: inherit;
+      font-size: 1.05rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .hint-toggle:active {
+      transform: scale(0.97);
+    }
+
+    .status-hint {
+      margin-top: 0.6rem;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 1.1rem;
+      line-height: 1.45;
+    }
+
+    .status-hint[hidden] {
+      display: none;
+    }
+
     .status-box .value {
       font-size: 2rem;
       font-weight: 600;
@@ -1216,8 +1251,12 @@
                 <span class="badge low">실시간 결과</span>
                 <div class="result-grid">
                   <div class="status-box">
-                  <div class="label">혼잡도</div>
+                  <div class="status-label-row">
+                    <div class="label" style="margin-bottom: 0;">혼잡도</div>
+                    <button class="hint-toggle" type="button" id="congestionHintBtn" aria-expanded="false" aria-controls="congestionHintText">설명</button>
+                  </div>
                     <div class="value" id="predictedPassengers">-</div>
+                    <div class="status-hint" id="congestionHintText" hidden>혼잡도는 현재 시간대의 버스 혼잡 흐름을 바탕으로 예상한 값이고, 탑승 가능 여부와 퍼센트는 그 혼잡도와 다음 버스 도착까지 남은 시간을 함께 반영해 계산합니다.</div>
                   </div>
                   <div class="status-box">
                   <div class="label">남은 시간</div>
@@ -1660,6 +1699,8 @@
     const busRefreshBtn = document.getElementById("busRefreshBtn");
     const busSyncStatusEl = document.getElementById("busSyncStatus");
     const naverMapAppLinkEl = document.getElementById("naverMapAppLink");
+    const congestionHintBtnEl = document.getElementById("congestionHintBtn");
+    const congestionHintTextEl = document.getElementById("congestionHintText");
     const feedbackInputEl = document.getElementById("feedbackInput");
     const feedbackSaveBtnEl = document.getElementById("feedbackSaveBtn");
     const feedbackStatusEl = document.getElementById("feedbackStatus");
@@ -2129,6 +2170,15 @@
       statusTimeLabelEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
     }
 
+    function setCongestionHintVisible(isVisible) {
+      if (congestionHintBtnEl) {
+        congestionHintBtnEl.setAttribute("aria-expanded", String(isVisible));
+      }
+      if (congestionHintTextEl) {
+        congestionHintTextEl.hidden = !isVisible;
+      }
+    }
+
     async function saveFeedback() {
       if (!feedbackInputEl) return;
 
@@ -2218,12 +2268,19 @@
       arrivalInput.value = "";
       refreshCurrentMinutes();
       refreshStatusTime();
+      setCongestionHintVisible(false);
       setupNaverMapLinks();
       renderBusMap(null, null, null);
       setBusSyncStatus("실시간 연동 대기 중");
       predict();
       setInterval(refreshCurrentMinutes, 1000);
       setInterval(refreshStatusTime, 1000);
+      if (congestionHintBtnEl) {
+        congestionHintBtnEl.addEventListener("click", () => {
+          const isVisible = congestionHintTextEl ? congestionHintTextEl.hidden : true;
+          setCongestionHintVisible(isVisible);
+        });
+      }
       if (busRefreshBtn) {
         busRefreshBtn.addEventListener("click", refreshBusLocation);
       }
