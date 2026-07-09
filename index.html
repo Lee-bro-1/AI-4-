@@ -1990,6 +1990,7 @@
 
     function formatWaitMinutes(minutes) {
       if (!Number.isFinite(minutes)) return "데이터 없음";
+      if (minutes <= 0) return "곧 도착";
       return `${Math.max(0, Math.round(minutes))}분`;
     }
 
