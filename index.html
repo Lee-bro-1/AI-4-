@@ -1837,6 +1837,13 @@
       return stopsAway <= 5 ? travelEstimate : scheduleEstimate;
     }
 
+    function pickReferenceBus(trackedBuses) {
+      return trackedBuses?.currentBus
+        ?? trackedBuses?.nextBus
+        ?? trackedBuses?.thirdBus
+        ?? null;
+    }
+
     async function loadArrivalMinutes() {
       const url = new URL(BUS_LOCATION_API_ENDPOINT);
       url.searchParams.set("serviceKey", BUS_API_SERVICE_KEY);
@@ -1865,7 +1872,8 @@
         setBusSyncStatus("확인 중");
       }
 
-      const bus = trackedBuses.currentBus ?? trackedBuses.nextBus ?? lastTrackedBuses.currentBus ?? lastTrackedBuses.nextBus;
+      const activeTrackedBuses = hasFreshData ? trackedBuses : lastTrackedBuses;
+      const bus = pickReferenceBus(activeTrackedBuses);
       if (bus) {
         const minutes = estimateArrivalMinutesFromBus(bus, getCurrentDayType(), getCurrentMinutes());
         if (Number.isFinite(minutes)) {
@@ -1874,8 +1882,8 @@
         }
       }
 
-      if (lastTrackedBuses.currentBus || lastTrackedBuses.nextBus) {
-        const fallbackBus = lastTrackedBuses.currentBus ?? lastTrackedBuses.nextBus;
+      if (pickReferenceBus(lastTrackedBuses)) {
+        const fallbackBus = pickReferenceBus(lastTrackedBuses);
         const fallbackMinutes = estimateArrivalMinutesFromBus(fallbackBus, getCurrentDayType(), getCurrentMinutes());
         if (Number.isFinite(fallbackMinutes)) {
           arrivalInput.value = String(fallbackMinutes);
