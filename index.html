@@ -1201,7 +1201,6 @@
             <p>7800 버스 노선 페이지를 네이버 지도 앱으로 바로 열어볼 수 있어요.</p>
             <div class="naver-map-actions">
               <a class="pill-btn primary" id="naverMapAppLink" href="#" target="_self" rel="noreferrer">네이버 지도 앱 열기</a>
-              <a class="pill-btn outline-dark" id="naverMapWebLink" href="#" target="_blank" rel="noreferrer">웹으로 보기</a>
             </div>
           </div>
         </div>
@@ -1572,7 +1571,6 @@
     const busRefreshBtn = document.getElementById("busRefreshBtn");
     const busSyncStatusEl = document.getElementById("busSyncStatus");
     const naverMapAppLinkEl = document.getElementById("naverMapAppLink");
-    const naverMapWebLinkEl = document.getElementById("naverMapWebLink");
     let lastBusUpdatedAt = null;
     let lastTrackedBuses = { currentBus: null, nextBus: null, thirdBus: null, buses: [] };
     let busRefreshPromise = null;
@@ -1717,9 +1715,6 @@
     function setupNaverMapLinks() {
       if (naverMapAppLinkEl) {
         naverMapAppLinkEl.href = NAVER_MAP_ROUTE_URL;
-      }
-      if (naverMapWebLinkEl) {
-        naverMapWebLinkEl.href = NAVER_MAP_ROUTE_URL;
       }
     }
 
