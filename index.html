@@ -1376,6 +1376,7 @@
     const NAVER_MAP_ROUTE_URL = "https://map.naver.com/p/entry/bus-route/9596?c=16.00,0,0,0,dh";
     const TARGET_STATION_NAME = "사당역9번출구앞";
     const TARGET_STATION_SEQ = 43;
+    const BUS_POSITION_SEQ_OFFSET = 2;
     const BUS_TIMELINE_START_SEQ = 38;
     const BUS_TIMELINE_END_SEQ = 44;
     const STATION_NAME_OVERRIDES = new Map([
@@ -1724,6 +1725,11 @@
       return Number.isFinite(parsed) ? parsed : null;
     }
 
+    function adjustStationSeq(value) {
+      const parsed = toNumber(value);
+      return Number.isFinite(parsed) ? parsed + BUS_POSITION_SEQ_OFFSET : null;
+    }
+
     function extractBusLocationList(payload) {
       const candidates = [
         payload?.response?.msgBody?.busLocationList,
@@ -1757,7 +1763,7 @@
           routeNm: toNumber(item.routeNm),
           rtId: toNumber(item.rtId),
           stationId: toNumber(item.stationId),
-          stationSeq: toNumber(item.stationSeq),
+          stationSeq: adjustStationSeq(item.stationSeq),
           stationName: item.stationName ?? item.stationNm ?? item.bsNm ?? item.stopName ?? item.station ?? null,
           remainSeatCnt: toNumber(item.remainSeatCnt),
           crowded: toNumber(item.crowded),
@@ -1774,7 +1780,7 @@
         const fallback = locationList
           .map((item) => ({
             stationId: toNumber(item.stationId),
-            stationSeq: toNumber(item.stationSeq),
+            stationSeq: adjustStationSeq(item.stationSeq),
             stationName: item.stationName ?? item.stationNm ?? item.bsNm ?? item.stopName ?? item.station ?? null,
             remainSeatCnt: toNumber(item.remainSeatCnt),
             crowded: toNumber(item.crowded),
