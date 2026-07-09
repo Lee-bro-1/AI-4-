@@ -648,6 +648,10 @@
                   <input class="field-input" id="dateInput" type="date" />
                 </label>
                 <label class="field">
+                  <span class="field-label">현재 시각</span>
+                  <input class="field-input" id="currentMinutesInput" type="text" readonly />
+                </label>
+                <label class="field">
                   <span class="field-label">시간 선택</span>
                   <select class="field-input" id="hourInput"></select>
                 </label>
@@ -1031,6 +1035,7 @@
 
     const hourInput = document.getElementById("hourInput");
     const dateInput = document.getElementById("dateInput");
+    const currentMinutesInput = document.getElementById("currentMinutesInput");
     const arrivalInput = document.getElementById("arrivalInput");
     const predictedPassengersEl = document.getElementById("predictedPassengers");
     const capacityValueEl = document.getElementById("capacityValue");
@@ -1055,6 +1060,14 @@
     function getCurrentMinutes() {
       const now = new Date();
       return now.getHours() * 60 + now.getMinutes();
+    }
+
+    function formatCurrentTime(minutes) {
+      if (!Number.isFinite(minutes)) return "-";
+      const totalMinutes = Math.max(0, Math.round(minutes));
+      const hours = Math.floor(totalMinutes / 60) % 24;
+      const mins = totalMinutes % 60;
+      return `${pad(hours)}:${pad(mins)}`;
     }
 
     function getCurrentDayType() {
@@ -1117,6 +1130,10 @@
       return dayType === "평일" ? 10 : 20;
     }
 
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
     function parseArrivalMinutes() {
       const minutes = Number(arrivalInput.value);
       return Number.isFinite(minutes) && minutes >= 0 ? minutes : null;
@@ -1125,17 +1142,19 @@
     function estimateWaitPlan(congestionRatio, dayType, arrivalMinutes) {
       if (!Number.isFinite(congestionRatio) || !Number.isFinite(arrivalMinutes)) return null;
       const headwayMinutes = getHeadwayMinutesForDayType(dayType);
-      const crowdPressureMinutes = headwayMinutes * Math.max(0, congestionRatio - 100) / 100;
-      const boardingChance = arrivalMinutes / (arrivalMinutes + crowdPressureMinutes + 1);
-      const canBoardNextBus = boardingChance >= 0.5;
-      const waitMinutes = canBoardNextBus ? arrivalMinutes : arrivalMinutes + headwayMinutes;
+      const congestionPressure = clamp((congestionRatio - 60) / 60, 0, 1);
+      const arrivalPressure = clamp((headwayMinutes - arrivalMinutes) / headwayMinutes, 0, 1);
+      const boardingPressure = congestionPressure * (0.7 + (arrivalPressure * 0.3));
+      const canBoardNextBus = boardingPressure < 0.45;
+      const waitMinutes = arrivalMinutes <= 0 ? 0 : canBoardNextBus ? arrivalMinutes : arrivalMinutes + Math.round(headwayMinutes / 2);
 
       return {
         canBoardNextBus,
-        boardingChance,
+        boardingPressure,
         waitMinutes,
         headwayMinutes,
-        crowdPressureMinutes
+        congestionPressure,
+        arrivalPressure
       };
     }
 
@@ -1219,12 +1238,13 @@
 
     function formatArrivalMinutes(minutes) {
       if (!Number.isFinite(minutes)) return "데이터 없음";
+      if (minutes <= 0) return "곧 도착";
       return `${Math.round(minutes)}분`;
     }
 
     function formatWaitMinutes(minutes) {
       if (!Number.isFinite(minutes)) return "데이터 없음";
-      if (minutes <= 0) return "추가 대기 없음";
+      if (minutes <= 0) return "곧 도착";
       return `${Math.round(minutes)}분`;
     }
 
@@ -1241,6 +1261,10 @@
         option.textContent = formatHour(hour);
         hourInput.appendChild(option);
       });
+    }
+
+    function refreshCurrentMinutes() {
+      currentMinutesInput.value = formatCurrentTime(getCurrentMinutes());
     }
 
     function predict() {
@@ -1271,9 +1295,11 @@
       dateInput.value = formatDateLabel(new Date());
       hourInput.value = String(getCurrentHour());
       arrivalInput.value = "";
+      refreshCurrentMinutes();
       dateInput.addEventListener("change", predict);
       hourInput.addEventListener("change", predict);
       predict();
+      setInterval(refreshCurrentMinutes, 1000);
       loadArrivalMinutes()
         .then(() => predict())
         .catch(() => {
