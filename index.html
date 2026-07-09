@@ -1496,6 +1496,7 @@
     ];
     const BUS_LOCATION_API_ENDPOINT = "https://apis.data.go.kr/6410000/buslocationservice/v2/getBusLocationListv2";
     const BUS_API_SERVICE_KEY = "223e3b2cf9a71733ebc98afd9de0fe244440b47b57aae18494886aebeffff8bd";
+    const BUS_API_PROXY_ENDPOINT = "https://api.allorigins.win/raw?url=";
     const BUS_ROUTE_ID = "200000150";
     const BUS_ROUTE_NAME = "7800";
     const TARGET_STATION_NAME = "사당역9번출구앞";
@@ -1509,16 +1510,6 @@
       [43, "사당역9번출구앞"],
       [44, "남현동(미정차)"],
     ]);
-    const ROUTE_FLOW = [
-      { seq: 38, label: "대공원고가교(미정차)", state: "" },
-      { seq: 39, label: "과천동행정복지센터", state: "" },
-      { seq: 40, label: "남태령역(중)", state: "" },
-      { seq: 41, label: "사당역(중)", state: "" },
-      { seq: null, label: "회차", state: "turn" },
-      { seq: 42, label: "사당역사거리(미정차)", state: "" },
-      { seq: 43, label: "사당역9번출구앞", state: "" },
-      { seq: 44, label: "남현동(미정차)", state: "" },
-    ];
     const AUTO_REFRESH_MS = 15000;
 
     const currentMinutesInput = document.getElementById("currentMinutesInput");
@@ -1673,60 +1664,96 @@
       return "실시간 연동 실패";
     }
 
+    async function fetchBusPayload(url) {
+      const directResponse = await fetch(url.toString());
+      if (directResponse.ok) {
+        try {
+          return await directResponse.json();
+        } catch (_error) {
+          // Fall through to proxy parsing below.
+        }
+      }
+
+      const proxyUrl = `${BUS_API_PROXY_ENDPOINT}${encodeURIComponent(url.toString())}`;
+      const proxyResponse = await fetch(proxyUrl);
+      if (!proxyResponse.ok) {
+        throw new Error(`HTTP ${proxyResponse.status}`);
+      }
+
+      const text = await proxyResponse.text();
+      return JSON.parse(text);
+    }
+
+    function buildBusTimelineStops(currentBus, nextBus) {
+      const seqs = [currentBus?.stationSeq, nextBus?.stationSeq]
+        .filter((value) => Number.isFinite(Number(value)))
+        .map((value) => Number(value));
+      const targetSeq = Number(TARGET_STATION_SEQ);
+      const anchorSeqs = [];
+
+      for (const seq of seqs) {
+        anchorSeqs.push(seq - 1, seq, seq + 1);
+      }
+
+      anchorSeqs.push(targetSeq - 2, targetSeq - 1, targetSeq, targetSeq + 1, targetSeq + 2);
+
+      return Array.from(new Set(anchorSeqs))
+        .filter((seq) => Number.isFinite(seq) && seq >= 0)
+        .sort((a, b) => a - b);
+    }
+
     function renderBusTimeline(currentBus, nextBus) {
       if (!busMapTrackEl) return;
 
       const currentSeq = Number.isFinite(Number(currentBus?.stationSeq)) ? Number(currentBus.stationSeq) : null;
       const nextSeq = Number.isFinite(Number(nextBus?.stationSeq)) ? Number(nextBus.stationSeq) : null;
       const targetSeq = Number(TARGET_STATION_SEQ);
+      const stops = buildBusTimelineStops(currentBus, nextBus);
       const nodes = [];
-      const liveStationName = formatBusStationName(currentBus);
-      const liveLabel = liveStationName && liveStationName !== "정류장 정보 없음"
-        ? `${BUS_ROUTE_NAME}(${liveStationName})`
-        : BUS_ROUTE_NAME;
 
-      nodes.push(`
-        <div class="bus-map-node live">
-          <div class="bus-map-marker">🚌</div>
-          <div class="bus-map-stop live">
-            <div class="bus-map-stop-title">${liveLabel}</div>
+      if (!stops.length) {
+        busMapTrackEl.innerHTML = `
+          <div class="bus-map-node gap">
+            <div class="bus-map-marker">?</div>
+            <div class="bus-map-stop">
+              <div class="bus-map-stop-title">${BUS_ROUTE_NAME}</div>
+            </div>
           </div>
-        </div>
-      `);
+        `;
+        return;
+      }
 
-      for (const point of ROUTE_FLOW) {
-        const isTurn = point.state === "turn";
-        const isCurrent = Number.isFinite(currentSeq) && point.seq === currentSeq;
-        const isNext = Number.isFinite(nextSeq) && point.seq === nextSeq;
-        const isTarget = point.seq === targetSeq;
-        const stationName = point.seq === null ? point.label : getStationNameBySeq(point.seq);
+      for (let index = 0; index < stops.length; index += 1) {
+        const seq = stops[index];
+        const prev = stops[index - 1];
+        if (index > 0 && seq - prev > 1) {
+          nodes.push(`
+            <div class="bus-map-node gap" aria-hidden="true">
+              <div class="bus-map-marker">·</div>
+              <div class="bus-map-stop">
+                <div class="bus-map-stop-title">...</div>
+              </div>
+            </div>
+          `);
+        }
+
+        const isCurrent = currentSeq === seq;
+        const isNext = nextSeq === seq;
+        const isTarget = targetSeq === seq;
+        const stopName = isCurrent ? formatBusStationName(currentBus) : isNext ? formatBusStationName(nextBus) : getStationNameBySeq(seq);
         const busLabel = isCurrent || isNext
-          ? `${BUS_ROUTE_NAME}(${isCurrent ? formatBusStationName(currentBus) : formatBusStationName(nextBus)})`
-          : stationName;
-        const stopClass = [
-          isCurrent ? "current" : "",
-          isNext ? "next" : "",
-          isTarget ? "target" : "",
-          isTurn ? "turn" : ""
-        ].filter(Boolean).join(" ");
-        const markerIcon = isCurrent || isNext ? "🚌" : isTarget ? "📍" : isTurn ? "↺" : "•";
+          ? `${BUS_ROUTE_NAME}(${stopName})`
+          : isTarget
+            ? `${BUS_ROUTE_NAME}(${stopName})`
+            : stopName;
+        const stopClass = isCurrent ? "current" : isNext ? "next" : isTarget ? "target" : "";
+        const markerIcon = isCurrent || isNext ? "🚌" : isTarget ? "📍" : "•";
 
         nodes.push(`
           <div class="bus-map-node ${stopClass}">
             <div class="bus-map-marker">${markerIcon}</div>
             <div class="bus-map-stop ${stopClass}">
               <div class="bus-map-stop-title">${busLabel}</div>
-            </div>
-          </div>
-        `);
-      }
-
-      if (!nodes.length) {
-        nodes.push(`
-          <div class="bus-map-node gap">
-            <div class="bus-map-marker">?</div>
-            <div class="bus-map-stop">
-              <div class="bus-map-stop-title">${BUS_ROUTE_NAME}</div>
             </div>
           </div>
         `);
@@ -1855,12 +1882,7 @@
       url.searchParams.set("routeId", BUS_ROUTE_ID);
       url.searchParams.set("format", "json");
 
-      const response = await fetch(url.toString());
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const payload = await response.json();
+      const payload = await fetchBusPayload(url);
       const busLocationList = extractBusLocationList(payload);
       const trackedBuses = chooseTrackedBuses(busLocationList);
       lastBusUpdatedAt = new Date();
