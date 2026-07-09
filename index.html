@@ -1896,10 +1896,10 @@
       busMapStatusEl.textContent = statusLabel;
 
       const currentLabel = hasCurrent
-        ? `${formatBusStationName(currentBus)} · ${Number.isFinite(currentBus.stationSeq) ? `#${currentBus.stationSeq}` : "-"} · ${formatBusRelation(currentBus)}`
+        ? `현재 버스(${formatBusStationName(currentBus)}) · ${Number.isFinite(currentBus.stationSeq) ? `#${currentBus.stationSeq}` : "-"} · ${formatBusRelation(currentBus)}`
         : "현재 버스 정보 없음";
       const nextLabel = hasNext
-        ? `${formatBusStationName(nextBus)} · ${Number.isFinite(nextBus.stationSeq) ? `#${nextBus.stationSeq}` : "-"} · ${formatBusRelation(nextBus)}`
+        ? `다음 버스(${formatBusStationName(nextBus)}) · ${Number.isFinite(nextBus.stationSeq) ? `#${nextBus.stationSeq}` : "-"} · ${formatBusRelation(nextBus)}`
         : "다음 버스 정보 없음";
 
       busMapPrimaryEl.innerHTML = `
@@ -1928,8 +1928,8 @@
 
       busMapListEl.innerHTML = `
         <li><span>노선</span><strong>${BUS_ROUTE_NAME}</strong></li>
-        <li><span>현재 버스</span><strong>${currentStationName} ${currentSeqLabel} / ${currentPlate}</strong></li>
-        <li><span>다음 버스</span><strong>${nextStationName} ${nextSeqLabel} / ${nextPlate}</strong></li>
+        <li><span>현재 버스</span><strong>현재 버스(${currentStationName}) ${currentSeqLabel} / ${currentPlate}</strong></li>
+        <li><span>다음 버스</span><strong>다음 버스(${nextStationName}) ${nextSeqLabel} / ${nextPlate}</strong></li>
         <li><span>상태</span><strong>${currentCrowdedLabel}${hasNext ? ` · ${nextCrowdedLabel}` : ""}</strong></li>
       `;
     }
