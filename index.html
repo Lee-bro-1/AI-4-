@@ -1983,9 +1983,17 @@
       return `${Math.round(minutes)}분`;
     }
 
+    function roundUpToNearestTen(value) {
+      if (!Number.isFinite(value)) return null;
+      const bounded = clamp(Math.round(value), 0, 100);
+      return Math.min(100, Math.ceil(bounded / 10) * 10);
+    }
+
     function formatBoardingValue(plan) {
       if (!plan) return "데이터 없음";
-      return plan.canBoardNextBus ? "가능" : "어려움";
+      const probability = roundUpToNearestTen((1 - plan.boardingPressure) * 100);
+      const label = plan.canBoardNextBus ? "가능" : "어려움";
+      return Number.isFinite(probability) ? `${label} (${probability}%)` : label;
     }
 
     function refreshCurrentMinutes() {
