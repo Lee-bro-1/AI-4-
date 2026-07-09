@@ -1520,6 +1520,7 @@
     const busMapTrackEl = document.getElementById("busMapTrack");
     const busRefreshBtn = document.getElementById("busRefreshBtn");
     let lastBusUpdatedAt = null;
+    let lastTrackedBuses = { currentBus: null, nextBus: null };
     let busRefreshPromise = null;
 
     function pad(value) {
@@ -1828,6 +1829,9 @@
       const busLocationList = extractBusLocationList(payload);
       const trackedBuses = chooseTrackedBuses(busLocationList);
       lastBusUpdatedAt = new Date();
+      if (trackedBuses.currentBus || trackedBuses.nextBus) {
+        lastTrackedBuses = trackedBuses;
+      }
       renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus);
 
       const bus = trackedBuses.currentBus ?? trackedBuses.nextBus;
@@ -1866,7 +1870,7 @@
             arrivalInput.value = String(fallbackMinutes);
           }
 
-          renderBusMap(null, null);
+          renderBusMap(lastTrackedBuses.currentBus, lastTrackedBuses.nextBus);
           predict();
           return null;
         } finally {
