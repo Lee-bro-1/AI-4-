@@ -1782,13 +1782,13 @@
         const headwayMinutes = getHeadwayMinutesForDayType(dayType);
         const occupiedRatio = clamp(congestionRatio, 0, 100);
         const remainingSeatRatio = clamp(100 - occupiedRatio, 0, 100);
-        const seatChance = remainingSeatRatio / 100;
+        const seatOpportunity = remainingSeatRatio / 100;
         const timingChance = Number.isFinite(arrivalMinutes)
           ? clamp(arrivalMinutes / headwayMinutes, 0, 1)
           : 0.5;
-        const boardingProbability = clamp(((seatChance * 0.65) + (timingChance * 0.35)) * 100, 0, 100);
+        const boardingProbability = clamp(((seatOpportunity * 0.75) + (timingChance * 0.25)) * 100, 0, 100);
         const boardingPressure = 1 - (boardingProbability / 100);
-        const canBoardNextBus = boardingProbability >= 50;
+        const canBoardNextBus = boardingProbability >= 55;
 
         return {
           canBoardNextBus,
@@ -1796,7 +1796,7 @@
           boardingProbability,
           occupiedRatio,
           remainingSeatRatio,
-          seatChance,
+          seatOpportunity,
           timingChance,
           headwayMinutes
         };
