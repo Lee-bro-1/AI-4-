@@ -1976,43 +1976,46 @@
       }
     }
 
-      function estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes, busCapacity = BUS_CAPACITY_DEFAULT, options = {}) {
-        if (!Number.isFinite(congestionRatio)) return null;
-        const headwayMinutes = Number.isFinite(options.headwayMinutes) && options.headwayMinutes > 0
-          ? options.headwayMinutes
-          : getHeadwayMinutesForDayType(dayType);
-        const capacity = Number.isFinite(busCapacity) && busCapacity > 0 ? busCapacity : BUS_CAPACITY_DEFAULT;
-        const demandRatio = clamp(congestionRatio, 0, 300);
-        const currentLoadCount = capacity * (demandRatio / 100);
-        const leftoverAfterBusCount = Math.max(0, currentLoadCount - capacity);
-        const effectiveArrivalMinutes = Number.isFinite(options.arrivalMinutes)
-          ? options.arrivalMinutes
-          : arrivalMinutes;
-        const elapsedRatio = Number.isFinite(effectiveArrivalMinutes)
-          ? clamp(1 - (effectiveArrivalMinutes / headwayMinutes), 0, 1)
-          : 0.5;
-        const queueGrowthPerMinute = headwayMinutes > 0 ? leftoverAfterBusCount / headwayMinutes : 0;
-        const predictedQueueCount = leftoverAfterBusCount + (queueGrowthPerMinute * (headwayMinutes * elapsedRatio));
-        const boardingProbability = predictedQueueCount <= 0
-          ? 100
-          : clamp(((capacity - predictedQueueCount) / capacity) * 100, 0, 100);
-        const boardingPressure = 1 - (boardingProbability / 100);
-        const canBoardNextBus = predictedQueueCount < capacity;
+    function estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes, busCapacity = BUS_CAPACITY_DEFAULT, options = {}) {
+      if (!Number.isFinite(congestionRatio)) return null;
+      const headwayMinutes = Number.isFinite(options.headwayMinutes) && options.headwayMinutes > 0
+        ? options.headwayMinutes
+        : getHeadwayMinutesForDayType(dayType);
+      const capacity = Number.isFinite(busCapacity) && busCapacity > 0 ? busCapacity : BUS_CAPACITY_DEFAULT;
+      const demandRatio = clamp(congestionRatio, 0, 300);
+      const effectiveArrivalMinutes = Number.isFinite(options.arrivalMinutes)
+        ? options.arrivalMinutes
+        : arrivalMinutes;
+      const arrivalRatio = Number.isFinite(effectiveArrivalMinutes)
+        ? clamp(effectiveArrivalMinutes / headwayMinutes, 0, 1)
+        : 0.5;
+      const capacityPressure = capacity <= 44 ? 0.04 : capacity <= 55 ? 0.03 : 0.015;
+      const boardingProbability = demandRatio <= 65
+        ? 100
+        : clamp(
+            100 - (((demandRatio - 65) * 0.8) + (arrivalRatio * 14) + (capacityPressure * 100)),
+            0,
+            100
+          );
+      const queuePressure = 1 - (boardingProbability / 100);
+      const predictedQueueCount = capacity * queuePressure;
+      const boardingPressure = 1 - (boardingProbability / 100);
+      const canBoardNextBus = boardingProbability >= 25;
 
-        return {
-          canBoardNextBus,
-          boardingPressure,
-          boardingProbability,
-          busCapacity: capacity,
-          demandRatio,
-          currentLoadCount,
-          leftoverAfterBusCount,
-          elapsedRatio,
-          queueGrowthPerMinute,
-          predictedQueueCount,
-          headwayMinutes
-        };
-      }
+      return {
+        canBoardNextBus,
+        boardingPressure,
+        boardingProbability,
+        busCapacity: capacity,
+        demandRatio,
+        currentLoadCount: capacity * (demandRatio / 100),
+        leftoverAfterBusCount: Math.max(0, (capacity * (demandRatio / 100)) - capacity),
+        elapsedRatio: arrivalRatio,
+        queueGrowthPerMinute: headwayMinutes > 0 ? predictedQueueCount / headwayMinutes : 0,
+        predictedQueueCount,
+        headwayMinutes
+      };
+    }
 
       function estimateWaitPlan(congestionRatio, dayType, arrivalMinutes, busCapacity = BUS_CAPACITY_DEFAULT) {
         if (!Number.isFinite(congestionRatio) || !Number.isFinite(arrivalMinutes)) return null;
@@ -2275,9 +2278,15 @@
 
     function formatBoardingValue(plan) {
       if (!plan) return "데이터 없음";
-      const probability = roundUpToNearestTen(plan.boardingProbability);
+      const probability = roundToNearestTen(plan.boardingProbability);
       const label = plan.canBoardNextBus ? "가능" : "어려움";
       return Number.isFinite(probability) ? `${label} (${probability}%)` : label;
+    }
+
+    function roundToNearestTen(value) {
+      if (!Number.isFinite(value)) return null;
+      const bounded = clamp(Math.round(value), 0, 100);
+      return Math.round(bounded / 10) * 10;
     }
 
     function calculateSubway4Metrics(congestionRatio) {
