@@ -1303,7 +1303,7 @@
                     <button class="hint-toggle" type="button" id="congestionHintBtn" aria-expanded="false" aria-controls="congestionHintText">설명</button>
                   </div>
                     <div class="value" id="predictedPassengers">-</div>
-                    <div class="status-hint" id="congestionHintText" hidden>혼잡도는 선택한 날짜와 시간대의 데이터를 바탕으로 예상한 값이에요. 남은 시간이 길수록 방금 전 버스가 지나간 상태로 보고 줄이 짧을 가능성을 높게, 남은 시간이 짧을수록 줄이 이미 많이 쌓였을 가능성을 높게 반영해 탑승 가능성을 계산합니다.</div>
+                    <div class="status-hint" id="congestionHintText" hidden>혼잡도 56%라면 정원 100명 기준으로 56명이 탄 상태, 즉 약 44석이 남아 있다고 보고 계산해요. 여기에 남은 시간이 길수록 바로 직전에 버스가 지나간 것으로 해석해서 탑승 가능성을 더 높게 반영합니다.</div>
                   </div>
                   <div class="status-box">
                   <div class="label">남은 시간</div>
@@ -1780,20 +1780,23 @@
       function estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes) {
         if (!Number.isFinite(congestionRatio)) return null;
         const headwayMinutes = getHeadwayMinutesForDayType(dayType);
-        const congestionPressure = clamp((congestionRatio - 60) / 60, 0, 1);
-        const crowdingChance = 1 - congestionPressure;
+        const occupiedRatio = clamp(congestionRatio, 0, 100);
+        const remainingSeatRatio = clamp(100 - occupiedRatio, 0, 100);
+        const seatChance = remainingSeatRatio / 100;
         const timingChance = Number.isFinite(arrivalMinutes)
           ? clamp(arrivalMinutes / headwayMinutes, 0, 1)
           : 0.5;
-        const boardingProbability = clamp(((crowdingChance * 0.45) + (timingChance * 0.55)) * 100, 0, 100);
+        const boardingProbability = clamp(((seatChance * 0.65) + (timingChance * 0.35)) * 100, 0, 100);
         const boardingPressure = 1 - (boardingProbability / 100);
-        const canBoardNextBus = boardingProbability >= 55;
+        const canBoardNextBus = boardingProbability >= 50;
 
         return {
           canBoardNextBus,
           boardingPressure,
           boardingProbability,
-          congestionPressure,
+          occupiedRatio,
+          remainingSeatRatio,
+          seatChance,
           timingChance,
           headwayMinutes
         };
