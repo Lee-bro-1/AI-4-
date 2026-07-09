@@ -588,6 +588,10 @@
       background: var(--green-accent);
     }
 
+    .bus-map-node.turn .bus-map-marker {
+      background: #475569;
+    }
+
     .bus-map-node.gap .bus-map-marker {
       width: 1.2rem;
       height: 1.2rem;
@@ -1488,14 +1492,14 @@
       [44, "남현동(미정차)"],
     ]);
     const ROUTE_FLOW = [
-      { label: "대공원고가교(미정차)", state: "" },
-      { label: "과천동행정복지센터", state: "" },
-      { label: "남태령역(중)", state: "" },
-      { label: "사당역(중)", state: "" },
-      { label: "회차", state: "turn" },
-      { label: "사당역사거리(미정차)", state: "" },
-      { label: "사당역9번출구앞", state: "" },
-      { label: "남현동(미정차)", state: "" },
+      { seq: 38, label: "대공원고가교(미정차)", state: "" },
+      { seq: 39, label: "과천동행정복지센터", state: "" },
+      { seq: 40, label: "남태령역(중)", state: "" },
+      { seq: 41, label: "사당역(중)", state: "" },
+      { seq: null, label: "회차", state: "turn" },
+      { seq: 42, label: "사당역사거리(미정차)", state: "" },
+      { seq: 43, label: "사당역9번출구앞", state: "" },
+      { seq: 44, label: "남현동(미정차)", state: "" },
     ];
     const AUTO_REFRESH_MS = 15000;
 
@@ -1627,98 +1631,46 @@
       return `갱신 ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
     }
 
-    function buildBusTimelineStops(currentBus, nextBus) {
-      const seqs = [currentBus?.stationSeq, nextBus?.stationSeq]
-        .filter((value) => Number.isFinite(Number(value)))
-        .map((value) => Number(value));
-      const targetSeq = Number(TARGET_STATION_SEQ);
-      const anchorSeqs = [];
-
-      for (const seq of seqs) {
-        anchorSeqs.push(seq - 1, seq, seq + 1);
-      }
-
-      anchorSeqs.push(targetSeq - 2, targetSeq - 1, targetSeq, targetSeq + 1, targetSeq + 2);
-
-      return Array.from(new Set(anchorSeqs))
-        .filter((seq) => Number.isFinite(seq) && seq >= 0)
-        .sort((a, b) => a - b);
-    }
-
     function renderBusTimeline(currentBus, nextBus) {
       if (!busMapTrackEl) return;
 
       const currentSeq = Number.isFinite(Number(currentBus?.stationSeq)) ? Number(currentBus.stationSeq) : null;
       const nextSeq = Number.isFinite(Number(nextBus?.stationSeq)) ? Number(nextBus.stationSeq) : null;
       const targetSeq = Number(TARGET_STATION_SEQ);
-      const formatBusLabel = (bus) => {
-        const stationName = formatBusStationName(bus);
-        return stationName && stationName !== "정류장 정보 없음"
-          ? `${BUS_ROUTE_NAME}(${stationName})`
-          : BUS_ROUTE_NAME;
-      };
-
-      if (!Number.isFinite(currentSeq) && !Number.isFinite(nextSeq)) {
-        busMapTrackEl.innerHTML = `
-          <div class="bus-map-node gap">
-            <div class="bus-map-marker">?</div>
-            <div class="bus-map-stop">
-              <div class="bus-map-stop-title">${BUS_ROUTE_NAME}</div>
-            </div>
-          </div>
-        `;
-        return;
-      }
-
-      const stops = buildBusTimelineStops(currentBus, nextBus);
-
-      if (!stops.length) {
-        busMapTrackEl.innerHTML = `
-          <div class="bus-map-node gap">
-            <div class="bus-map-marker">·</div>
-            <div class="bus-map-stop">
-              <div class="bus-map-stop-title">실시간 위치를 불러오는 중</div>
-              <div class="bus-map-stop-sub">버스 위치 API 응답을 기다리고 있습니다.</div>
-            </div>
-          </div>
-        `;
-        return;
-      }
-
       const nodes = [];
-      for (let index = 0; index < stops.length; index += 1) {
-        const seq = stops[index];
-        const prev = stops[index - 1];
-        if (index > 0 && seq - prev > 1) {
-          nodes.push(`
-            <div class="bus-map-node gap" aria-hidden="true">
-              <div class="bus-map-marker">·</div>
-              <div class="bus-map-stop">
-                <div class="bus-map-stop-title">...</div>
-              </div>
-            </div>
-          `);
-        }
-
-        const isCurrent = currentSeq === seq;
-        const isNext = nextSeq === seq;
-        const isTarget = targetSeq === seq;
-        const stopName = isCurrent ? formatBusStationName(currentBus) : isNext ? formatBusStationName(nextBus) : getStationNameBySeq(seq);
-        const busLabel = isCurrent
-          ? formatBusLabel(currentBus)
-          : isNext
-            ? formatBusLabel(nextBus)
-            : isTarget
-              ? `${BUS_ROUTE_NAME}(${stopName})`
-              : stopName;
-        const stopClass = isCurrent ? "current" : isNext ? "next" : isTarget ? "target" : "";
-        const markerIcon = isCurrent || isNext ? "🚌" : isTarget ? "📍" : "•";
+      for (const point of ROUTE_FLOW) {
+        const isTurn = point.state === "turn";
+        const isCurrent = Number.isFinite(currentSeq) && point.seq === currentSeq;
+        const isNext = Number.isFinite(nextSeq) && point.seq === nextSeq;
+        const isTarget = point.seq === targetSeq;
+        const stationName = point.seq === null ? point.label : getStationNameBySeq(point.seq);
+        const busLabel = isCurrent || isNext
+          ? `${BUS_ROUTE_NAME}(${isCurrent ? formatBusStationName(currentBus) : formatBusStationName(nextBus)})`
+          : stationName;
+        const stopClass = [
+          isCurrent ? "current" : "",
+          isNext ? "next" : "",
+          isTarget ? "target" : "",
+          isTurn ? "turn" : ""
+        ].filter(Boolean).join(" ");
+        const markerIcon = isCurrent || isNext ? "🚌" : isTarget ? "📍" : isTurn ? "↺" : "•";
 
         nodes.push(`
           <div class="bus-map-node ${stopClass}">
             <div class="bus-map-marker">${markerIcon}</div>
             <div class="bus-map-stop ${stopClass}">
               <div class="bus-map-stop-title">${busLabel}</div>
+            </div>
+          </div>
+        `);
+      }
+
+      if (!nodes.length) {
+        nodes.push(`
+          <div class="bus-map-node gap">
+            <div class="bus-map-marker">?</div>
+            <div class="bus-map-stop">
+              <div class="bus-map-stop-title">${BUS_ROUTE_NAME}</div>
             </div>
           </div>
         `);
