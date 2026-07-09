@@ -49,7 +49,10 @@
 
     body {
       margin: 0;
-      background: var(--cream);
+      background:
+        radial-gradient(circle at top left, rgba(0, 98, 65, 0.10), transparent 24%),
+        radial-gradient(circle at top right, rgba(43, 81, 72, 0.08), transparent 22%),
+        linear-gradient(180deg, #f8faf8 0%, #f2f6f1 42%, #ecf1eb 100%);
       color: var(--text);
       font-family: SoDoSans, "Helvetica Neue", Helvetica, Arial, sans-serif;
       letter-spacing: -0.01em;
@@ -70,9 +73,9 @@
       position: fixed;
       inset: 0 0 auto 0;
       height: 9.9rem;
-      background: rgba(255,255,255,0.96);
-      backdrop-filter: blur(10px);
-      box-shadow: var(--nav-shadow);
+      background: rgba(255,255,255,0.84);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
       z-index: 20;
     }
 
@@ -183,9 +186,12 @@
     }
 
     .hero {
-      background: var(--cream);
-      padding-top: var(--space-4);
-      padding-bottom: var(--space-4);
+      background:
+        radial-gradient(circle at top left, rgba(0, 98, 65, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(6, 182, 126, 0.12), transparent 24%),
+        linear-gradient(180deg, #f8fbf8 0%, #f3f7f2 45%, #eef3ec 100%);
+      padding-top: 2rem;
+      padding-bottom: 1rem;
     }
 
     .hero-grid {
@@ -205,8 +211,9 @@
 
     .hero-copy {
       background: var(--white);
-      box-shadow: var(--card-shadow);
+      box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
       padding: var(--space-4);
+      border: 1px solid rgba(0, 0, 0, 0.04);
     }
 
     .eyebrow {
@@ -233,8 +240,8 @@
 
     .lead {
       margin: 0;
-      font-size: 1.9rem;
-      line-height: 1.75;
+      font-size: 1.65rem;
+      line-height: 1.65;
       color: var(--text);
       max-width: 62ch;
     }
@@ -267,13 +274,14 @@
     }
 
     .hero-card {
-      background: var(--green-house);
+      background: linear-gradient(180deg, rgba(0, 98, 65, 0.98), rgba(30, 57, 50, 0.98));
       color: var(--text-white);
-      box-shadow: var(--card-shadow);
+      box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
       padding: var(--space-4);
       display: grid;
       gap: var(--space-3);
       align-content: start;
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .hero-card h2 {
@@ -329,8 +337,10 @@
     }
 
     .card {
-      background: var(--white);
-      box-shadow: var(--card-shadow);
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
       padding: var(--space-3);
     }
 
@@ -351,6 +361,10 @@
     .field {
       display: grid;
       gap: 0.6rem;
+      padding: 1.1rem 1.2rem;
+      border-radius: 1.6rem;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(0, 0, 0, 0.05);
     }
 
     .field-label {
@@ -361,20 +375,19 @@
 
     .field-input {
       width: 100%;
-      border: 1px solid #d6dbde;
-      border-radius: 4px;
-      background: var(--white);
+      border: 0;
+      border-radius: 1.2rem;
+      background: transparent;
       color: var(--text);
-      padding: 1.2rem;
+      padding: 0.1rem 0 0;
       font: inherit;
-      font-size: 1.6rem;
+      font-size: 1.7rem;
+      font-weight: 600;
       outline: none;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     }
 
     .field-input:focus {
-      border-color: var(--green-accent);
-      box-shadow: 0 0 0 0.3rem rgba(0, 117, 74, 0.12);
+      box-shadow: none;
     }
 
     .helper {
@@ -705,14 +718,15 @@
     }
 
     .status-box {
-      padding: var(--space-2);
-      border-radius: var(--radius-card);
-      background: var(--ceramic);
+      padding: 1.1rem 1.1rem 1rem;
+      border-radius: 1.6rem;
+      background: rgba(255,255,255,0.10);
       min-height: 8.4rem;
+      border: 1px solid rgba(255,255,255,0.08);
     }
 
     .status-box .label {
-      color: var(--text-soft);
+      color: rgba(255,255,255,0.7);
       font-size: 1.2rem;
       margin-bottom: 0.6rem;
     }
@@ -721,15 +735,18 @@
       font-size: 2rem;
       font-weight: 600;
       line-height: 1.2;
-      color: var(--green-house);
+      color: var(--text-white);
     }
 
     .status-band {
-      background: var(--green-house);
+      background: linear-gradient(180deg, rgba(30, 57, 50, 0.98), rgba(27, 49, 43, 0.98));
       color: var(--text-white);
       padding: var(--space-3);
       display: grid;
       gap: var(--space-2);
+      border-radius: 2rem;
+      box-shadow: 0 16px 38px rgba(15, 23, 42, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .badge {
@@ -738,7 +755,7 @@
       gap: 0.8rem;
       width: fit-content;
       border-radius: 999px;
-      padding: 0.8rem 1.2rem;
+      padding: 0.7rem 1.1rem;
       font-size: 1.4rem;
       font-weight: 600;
       letter-spacing: -0.01em;
@@ -1125,12 +1142,12 @@
               <h2 class="section-title">실시간 확인</h2>
               <div class="form">
                 <label class="field">
-                  <span class="field-label">현재 시각</span>
-                  <input class="field-input" id="currentMinutesInput" type="text" readonly />
-                </label>
-                <label class="field">
                   <span class="field-label">오늘 날짜</span>
                   <input class="field-input" id="todayDateInput" type="text" readonly />
+                </label>
+                <label class="field">
+                  <span class="field-label">현재 시각</span>
+                  <input class="field-input" id="currentMinutesInput" type="text" readonly />
                 </label>
                 <input id="arrivalInput" type="hidden" value="" />
               </div>
