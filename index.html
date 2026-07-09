@@ -1285,7 +1285,7 @@
                 <h2 class="section-title">버스 위치</h2>
               </div>
               <div class="bus-map-meta">
-                <div class="bus-map-status" id="busSyncStatus">실시간 연동 대기 중</div>
+                <div class="bus-map-status" id="busSyncStatus">대기 중</div>
                 <button class="pill-btn outline-dark bus-map-refresh" type="button" id="busRefreshBtn">지금 갱신</button>
               </div>
             </div>
@@ -1546,7 +1546,7 @@
       if (message.includes("비어")) {
         return "실시간 데이터 확인 실패";
       }
-      return "실시간 연동 실패";
+      return "연동 실패";
     }
 
     function setupNaverMapLinks() {
@@ -1582,7 +1582,7 @@
         }
       }
 
-      throw lastError ?? new Error("실시간 API 연동 실패");
+      throw lastError ?? new Error("API 연동 실패");
     }
 
     function buildBusTimelineStops(currentBus, nextBus, thirdBus) {
@@ -1856,13 +1856,13 @@
       setupNaverMapLinks();
       if (hasFreshData) {
         renderBusMap(trackedBuses.currentBus, trackedBuses.nextBus, trackedBuses.thirdBus);
-        setBusSyncStatus(`실시간 연동됨 · <strong>${formatBusUpdatedAt(lastBusUpdatedAt)}</strong>`);
+        setBusSyncStatus(`연동됨 · <strong>${formatBusUpdatedAt(lastBusUpdatedAt)}</strong>`);
       } else if (hasPreviousData) {
         renderBusMap(lastTrackedBuses.currentBus, lastTrackedBuses.nextBus, lastTrackedBuses.thirdBus);
-        setBusSyncStatus(`실시간 데이터가 잠시 부족합니다 · <strong>마지막 위치 유지 중</strong>`);
+        setBusSyncStatus(`잠깐 비었어요 · <strong>마지막 위치 유지</strong>`);
       } else {
         renderBusMap(null, null, null);
-        setBusSyncStatus("실시간 데이터를 확인하는 중");
+        setBusSyncStatus("확인 중");
       }
 
       const bus = trackedBuses.currentBus ?? trackedBuses.nextBus ?? lastTrackedBuses.currentBus ?? lastTrackedBuses.nextBus;
@@ -2064,7 +2064,7 @@
       setCongestionHintVisible(false);
       setupNaverMapLinks();
       renderBusMap(null, null, null);
-      setBusSyncStatus("실시간 연동 대기 중");
+      setBusSyncStatus("대기 중");
       predict();
       setInterval(refreshCurrentMinutes, 1000);
       setInterval(refreshStatusTime, 1000);
