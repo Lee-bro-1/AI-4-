@@ -1303,7 +1303,7 @@
                     <button class="hint-toggle" type="button" id="congestionHintBtn" aria-expanded="false" aria-controls="congestionHintText">설명</button>
                   </div>
                     <div class="value" id="predictedPassengers">-</div>
-                    <div class="status-hint" id="congestionHintText" hidden>혼잡도 56%라면 정원 100명 기준으로 56명이 탄 상태, 즉 약 44석이 남아 있다고 보고 계산해요. 여기에 남은 시간이 길수록 바로 직전에 버스가 지나간 것으로 해석해서 탑승 가능성이 자연스럽게 올라가도록 반영합니다.</div>
+                    <div class="status-hint" id="congestionHintText" hidden>혼잡도 56%라면 정원 100명 기준으로 56명이 탄 상태, 즉 약 44석이 남아 있다고 보고 계산해요. 남은 시간이 길수록 직전 버스가 지나간 직후라 줄이 짧다고 보고, 남은 시간이 짧을수록 줄이 다시 많이 쌓였다고 봅니다.</div>
                   </div>
                   <div class="status-box">
                   <div class="label">남은 시간</div>
@@ -1780,25 +1780,26 @@
       function estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes) {
         if (!Number.isFinite(congestionRatio)) return null;
         const headwayMinutes = getHeadwayMinutesForDayType(dayType);
-        const occupiedRatio = clamp(congestionRatio, 0, 100);
-        const remainingSeatRatio = clamp(100 - occupiedRatio, 0, 100);
-        const seatOpportunity = remainingSeatRatio / 100;
-        const timeOpportunity = Number.isFinite(arrivalMinutes)
-          ? clamp(arrivalMinutes / headwayMinutes, 0, 1)
+        const demandRatio = clamp(congestionRatio, 0, 300);
+        const leftoverAfterBusRatio = Math.max(0, demandRatio - 100);
+        const elapsedRatio = Number.isFinite(arrivalMinutes)
+          ? clamp(1 - (arrivalMinutes / headwayMinutes), 0, 1)
           : 0.5;
-        const boardingBase = Math.sqrt(seatOpportunity * timeOpportunity);
-        const boardingProbability = clamp(boardingBase * 100, 0, 100);
+        const predictedQueueRatio = leftoverAfterBusRatio + ((demandRatio - leftoverAfterBusRatio) * elapsedRatio);
+        const boardingProbability = predictedQueueRatio <= 0
+          ? 100
+          : clamp((100 / predictedQueueRatio) * 100, 0, 100);
         const boardingPressure = 1 - (boardingProbability / 100);
-        const canBoardNextBus = boardingProbability >= 55;
+        const canBoardNextBus = boardingProbability >= 50;
 
         return {
           canBoardNextBus,
           boardingPressure,
           boardingProbability,
-          occupiedRatio,
-          remainingSeatRatio,
-          seatOpportunity,
-          timeOpportunity,
+          demandRatio,
+          leftoverAfterBusRatio,
+          elapsedRatio,
+          predictedQueueRatio,
           headwayMinutes
         };
       }
@@ -1807,7 +1808,7 @@
         if (!Number.isFinite(congestionRatio) || !Number.isFinite(arrivalMinutes)) return null;
         const boardingPlan = estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes);
         if (!boardingPlan) return null;
-        const arrivalPressure = clamp(arrivalMinutes / boardingPlan.headwayMinutes, 0, 1);
+        const remainingHeadwayRatio = clamp(arrivalMinutes / boardingPlan.headwayMinutes, 0, 1);
         const waitMinutes = arrivalMinutes <= 0
           ? 0
           : boardingPlan.canBoardNextBus
@@ -1817,7 +1818,7 @@
         return {
           ...boardingPlan,
           waitMinutes,
-          arrivalPressure
+          remainingHeadwayRatio
         };
       }
 
