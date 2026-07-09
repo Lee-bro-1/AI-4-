@@ -324,6 +324,10 @@
       align-items: start;
     }
 
+    .mobile-route-panel {
+      display: none;
+    }
+
     .card {
       background: var(--white);
       box-shadow: var(--card-shadow);
@@ -917,6 +921,33 @@
         background: linear-gradient(90deg, var(--green-accent), var(--green), var(--green-uplift));
       }
 
+      .main {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #summary {
+        scroll-margin-top: 9.6rem;
+      }
+
+      .mobile-route-panel {
+        display: block;
+        margin-top: 1.2rem;
+        padding-bottom: calc(8.8rem + 1rem);
+      }
+
+      .mobile-route-panel .container {
+        width: min(100% - 1.6rem, 560px);
+      }
+
+      .mobile-route-panel .hero-card {
+        display: grid;
+      }
+
+      .hero-grid .hero-card {
+        display: none;
+      }
+
       .mobile-tabbar {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1000,10 +1031,10 @@
         <div class="container">
           <div class="hero-grid">
             <article class="hero-copy">
-              <div class="eyebrow">오늘 날짜 · 평일/토요일/일요일 구분</div>
+              <div class="eyebrow">실시간 버스 확인</div>
               <h1>버스 탈 수 있을까?</h1>
               <p class="lead">
-                오늘 날짜를 기준으로 평일인지 토요일인지 일요일인지 구분합니다. 지금까지 받은 값은 평일 데이터, 토요일 데이터, 일요일 데이터로 나눠 넣어 두었습니다.
+                실시간 위치와 혼잡도를 바로 보여줍니다.
               </p>
 
               <div class="hero-meta" aria-label="핵심 정보">
@@ -1023,8 +1054,8 @@
             </article>
 
             <aside class="hero-card">
-              <h2>시간과 날짜만 고르면 바로 결과가 나옵니다.</h2>
-              <p>평일 데이터, 토요일 데이터, 일요일 데이터를 모두 분리해 두었습니다.</p>
+              <h2>지금 타도 되는지 바로 보여줍니다.</h2>
+              <p>현재 버스 위치와 남은 시간을 한눈에 확인하세요.</p>
               <div class="route-box">
                 <div class="route-line">
                   <strong>노선</strong>
@@ -1036,11 +1067,11 @@
                 </div>
                 <div class="route-line">
                   <strong>데이터</strong>
-                  <span>평일 / 토요일 / 일요일 분리 적용</span>
+                  <span>평일·주말 분리</span>
                 </div>
                 <div class="route-line">
                   <strong>배차</strong>
-                  <span>평일 10분 / 토요일·일요일 20분</span>
+                  <span>평일 10분 · 주말 20분</span>
                 </div>
               </div>
             </aside>
@@ -1052,40 +1083,36 @@
         <div class="container">
           <div class="main">
             <section class="card" id="predict">
-              <h2 class="section-title">혼잡도 확인</h2>
+              <h2 class="section-title">실시간 확인</h2>
               <div class="form">
                 <label class="field">
                   <span class="field-label">현재 시각</span>
                   <input class="field-input" id="currentMinutesInput" type="text" readonly />
                 </label>
-                <label class="field">
-                  <span class="field-label">다음 버스 도착까지 남은 시간(분)</span>
-                  <input class="field-input" id="arrivalInput" type="number" min="0" step="1" readonly placeholder="실시간 자동 연동" />
-                </label>
+                <input id="arrivalInput" type="hidden" value="" />
               </div>
               <p class="helper" style="margin-top: 1.6rem;">
-                다음 버스 도착 시간은 실시간 API에서 자동으로 받아오고, 아래 결과는 그 값을 바탕으로 보여줍니다.
+                실시간 위치를 받아 자동으로 계산합니다.
               </p>
-            </section>
 
-            <section class="sidebar-card">
-              <div class="card">
-                <h2 class="section-title">혼잡도 결과</h2>
+              <div class="status-band" style="margin-top: 2rem; border-radius: 1.8rem;">
+                <span class="badge low">실시간 결과</span>
+                <p class="message">혼잡도와 탑승 가능 여부를 바로 보여줍니다.</p>
                 <div class="result-grid">
                   <div class="status-box">
-                    <div class="label">대표 혼잡도</div>
+                  <div class="label">혼잡도</div>
                     <div class="value" id="predictedPassengers">-</div>
                   </div>
                   <div class="status-box">
-                    <div class="label">다음 버스까지</div>
+                  <div class="label">남은 시간</div>
                     <div class="value" id="arrivalValue">-</div>
                   </div>
                   <div class="status-box">
-                    <div class="label">탑승 판정</div>
+                  <div class="label">탑승</div>
                     <div class="value" id="boardingValue">-</div>
                   </div>
                   <div class="status-box">
-                    <div class="label">예상 대기 시간</div>
+                  <div class="label">대기 시간</div>
                     <div class="value" id="waitTimeValue">-</div>
                   </div>
                 </div>
@@ -1100,12 +1127,12 @@
           <div class="card bus-map-card">
             <div class="bus-map-header">
               <div>
-                <h2 class="section-title">현재 버스 위치</h2>
-                <p class="helper">실시간 버스 위치를 받아와서, 현재 버스가 어느 정류장 근처에 있는지 한눈에 보여줍니다.</p>
+                <h2 class="section-title">버스 위치</h2>
+                <p class="helper">현재 버스가 어디쯤인지 바로 보여줍니다.</p>
               </div>
               <div class="bus-map-meta">
-                <span class="badge low" id="busMapStatus">연동 중</span>
-                <span class="bus-map-note" id="busMapUpdated">갱신 대기</span>
+                <span class="badge low" id="busMapStatus">대기 중</span>
+                <span class="bus-map-note" id="busMapUpdated">대기 중</span>
               </div>
             </div>
 
@@ -1114,17 +1141,44 @@
 
               <div class="bus-map-summary">
                 <div class="bus-map-summary-box">
-                  <div class="bus-map-summary-title">현재 버스</div>
-                  <div class="bus-map-summary-value" id="busMapPrimary">실시간 위치를 불러오는 중</div>
+                  <div class="bus-map-summary-title">지금 버스</div>
+                  <div class="bus-map-summary-value" id="busMapPrimary">위치 확인 중</div>
                 </div>
                 <ul class="bus-map-summary-list" id="busMapList">
-                  <li><span>노선</span><strong>7800번</strong></li>
-                  <li><span>기준 정류장</span><strong>사당역9번출구앞</strong></li>
-                  <li><span>상태</span><strong>연동 대기</strong></li>
+                  <li><span>노선</span><strong>7800</strong></li>
+                  <li><span>기준</span><strong>사당역9번출구앞</strong></li>
+                  <li><span>상태</span><strong>대기 중</strong></li>
                 </ul>
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="section mobile-route-panel" id="routeInfoMobile">
+        <div class="container">
+          <aside class="hero-card">
+            <h2>노선 한눈에</h2>
+            <p>노선 기준 정보도 같이 확인할 수 있습니다.</p>
+            <div class="route-box">
+              <div class="route-line">
+                <strong>노선</strong>
+                <span>7800번 버스</span>
+              </div>
+              <div class="route-line">
+                <strong>대상</strong>
+                <span>사당역9번출구앞</span>
+              </div>
+              <div class="route-line">
+                <strong>데이터</strong>
+                <span>평일·주말 분리</span>
+              </div>
+              <div class="route-line">
+                <strong>배차</strong>
+                <span>평일 10분 · 주말 20분</span>
+              </div>
+            </div>
+          </aside>
         </div>
       </section>
     </main>
@@ -1580,7 +1634,7 @@
     }
 
     function formatBusUpdatedAt(date) {
-      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "갱신 대기";
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "대기 중";
       return `갱신 ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
     }
 
@@ -1678,14 +1732,14 @@
     function renderBusMap(bus) {
       if (!busMapStatusEl || !busMapUpdatedEl || !busMapPrimaryEl || !busMapListEl) return;
 
-      const statusLabel = bus ? "실시간" : "연동 중";
+        const statusLabel = bus ? "실시간" : "대기 중";
       const statusClass = bus ? "badge medium" : "badge low";
       busMapStatusEl.className = statusClass;
       busMapStatusEl.textContent = statusLabel;
 
       busMapPrimaryEl.innerHTML = bus
         ? `<strong>${formatBusRelation(bus)}</strong>`
-        : "실시간 위치를 불러오는 중";
+        : "위치 확인 중";
 
       busMapUpdatedEl.textContent = formatBusUpdatedAt(lastBusUpdatedAt);
 
@@ -1695,9 +1749,9 @@
       const crowdedLabel = formatBusCrowding(bus);
 
       busMapListEl.innerHTML = `
-        <li><span>노선</span><strong>${BUS_ROUTE_NAME}번</strong></li>
+        <li><span>노선</span><strong>${BUS_ROUTE_NAME}</strong></li>
         <li><span>현재 정류장</span><strong>${busStationName} ${busSeqLabel}</strong></li>
-        <li><span>차량 번호</span><strong>${busPlate}</strong></li>
+        <li><span>차량</span><strong>${busPlate}</strong></li>
         <li><span>상태</span><strong>${crowdedLabel}</strong></li>
       `;
 
