@@ -1312,7 +1312,6 @@
                   <div class="status-box">
                   <div class="label">탑승 가능성</div>
                     <div class="value" id="boardingValue">-</div>
-                    <div class="status-hint" id="boardingFormulaText">-</div>
                   </div>
                   <div class="status-box">
                   <div class="label">예상 대기 시간</div>
@@ -1449,7 +1448,6 @@
     const predictedPassengersEl = document.getElementById("predictedPassengers");
     const arrivalValueEl = document.getElementById("arrivalValue");
     const boardingValueEl = document.getElementById("boardingValue");
-    const boardingFormulaTextEl = document.getElementById("boardingFormulaText");
     const waitTimeValueEl = document.getElementById("waitTimeValue");
     const todayDateInputEl = document.getElementById("todayDateInput");
     const liveResetBtnEl = document.getElementById("liveResetBtn");
@@ -2149,19 +2147,6 @@
       return Number.isFinite(probability) ? `${label} (${probability}%)` : label;
     }
 
-    function formatBoardingFormula(plan) {
-      if (!plan) return "탑승 가능성 식: 데이터 없음";
-      const capacity = Number.isFinite(plan.busCapacity) ? plan.busCapacity : "-";
-      const busTypeLabel = plan.busTypeLabel ? ` (${plan.busTypeLabel})` : "";
-      const leftover = Number.isFinite(plan.leftoverAfterBusCount) ? plan.leftoverAfterBusCount.toFixed(1) : "-";
-      const queue = Number.isFinite(plan.predictedQueueCount) ? plan.predictedQueueCount.toFixed(1) : "-";
-      const arrivalMinutes = Number.isFinite(plan.boardingArrivalMinutes) ? plan.boardingArrivalMinutes : "-";
-      const headwayMinutes = Number.isFinite(plan.boardingHeadwayMinutes) ? plan.boardingHeadwayMinutes : "-";
-      const growth = Number.isFinite(plan.queueGrowthPerMinute) ? plan.queueGrowthPerMinute.toFixed(2) : "-";
-      const probability = Number.isFinite(plan.boardingProbability) ? Math.round(plan.boardingProbability) : "-";
-      return `N=${capacity}${busTypeLabel}, L=${leftover}명, Q=L+(L/T)×(T-t)=${queue}명, r=${growth}명/분, t=${arrivalMinutes}분, T=${headwayMinutes}분, P=((N-Q)/N)×100=${probability}%`;
-    }
-
     function refreshCurrentMinutes() {
       if (todayDateInputEl && !todayDateInputEl.value) {
         todayDateInputEl.value = formatDateLabel(new Date());
@@ -2293,7 +2278,6 @@
       predictedPassengersEl.textContent = congestionRatio === null ? "데이터 없음" : `${formatNumber(congestionRatio)}%`;
       arrivalValueEl.textContent = liveMode ? formatArrivalMinutes(arrivalMinutes) : "";
       boardingValueEl.textContent = formatBoardingValue(boardingPlan);
-      if (boardingFormulaTextEl) boardingFormulaTextEl.textContent = formatBoardingFormula(boardingPlan);
       waitTimeValueEl.textContent = liveMode && displayWaitPlan ? formatWaitMinutes(displayWaitPlan.waitMinutes) : "";
       if (todayDateInputEl && !todayDateInputEl.value) todayDateInputEl.value = selectedDate;
       if (currentMinutesInput && !currentMinutesInput.value) currentMinutesInput.value = formatCurrentTime(selectedTimeMinutes);
