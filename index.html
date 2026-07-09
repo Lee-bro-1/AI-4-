@@ -1618,11 +1618,17 @@
     const TARGET_STATION_NAME = "사당역9번출구앞";
     const TARGET_STATION_SEQ = 41;
     const STATION_NAME_OVERRIDES = new Map([
-      [40, "사당역사거리(미정차)"],
-      [41, "사당역9번출구앞"],
-      [42, "남현동(미정차)"],
+      [38, "대공원고가교(미정차)"],
+      [39, "과천동행정복지센터"],
+      [40, "남태령역(중)"],
+      [41, "사당역(중)"],
+      [42, "사당역사거리(미정차)"],
+      [43, "사당역9번출구앞"],
+      [44, "남현동(미정차)"],
     ]);
     const ROUTE_FLOW = [
+      { label: "대공원고가교(미정차)", state: "" },
+      { label: "과천동행정복지센터", state: "" },
       { label: "남태령역(중)", state: "" },
       { label: "사당역(중)", state: "" },
       { label: "회차", state: "turn" },
@@ -1773,15 +1779,15 @@
     function renderRouteFlow(currentBus, nextBus) {
       if (!busMapRouteEl) return;
 
-      const currentSeq = Number.isFinite(currentBus?.stationSeq) ? Number(currentBus.stationSeq) : null;
-      const nextSeq = Number.isFinite(nextBus?.stationSeq) ? Number(nextBus.stationSeq) : null;
+      const currentLabel = currentBus ? formatBusStationName(currentBus) : null;
+      const nextLabel = nextBus ? formatBusStationName(nextBus) : null;
 
       busMapRouteEl.innerHTML = ROUTE_FLOW.flatMap((step, index) => {
         const classes = ["bus-map-route-item", step.state];
-        if (Number.isFinite(currentSeq) && step.label === getStationNameBySeq(currentSeq)) {
+        if (currentLabel && step.label === currentLabel) {
           classes.push("active");
         }
-        if (Number.isFinite(nextSeq) && step.label === getStationNameBySeq(nextSeq)) {
+        if (nextLabel && step.label === nextLabel) {
           classes.push("next");
         }
         const node = `<span class="${classes.join(" ")}">${step.label}</span>`;
