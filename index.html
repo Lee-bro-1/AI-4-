@@ -1298,7 +1298,7 @@
                     <div class="value" id="boardingValue">-</div>
                   </div>
                   <div class="status-box">
-                  <div class="label">대기 시간</div>
+                  <div class="label">예상 대기 시간</div>
                     <div class="value" id="waitTimeValue">-</div>
                   </div>
                 </div>
@@ -1985,14 +1985,12 @@
 
     function formatArrivalMinutes(minutes) {
       if (!Number.isFinite(minutes)) return "데이터 없음";
-      if (minutes <= 0) return "곧 도착";
-      return `${Math.round(minutes)}분`;
+      return `${Math.max(0, Math.round(minutes))}분`;
     }
 
     function formatWaitMinutes(minutes) {
       if (!Number.isFinite(minutes)) return "데이터 없음";
-      if (minutes <= 0) return "곧 도착";
-      return `${Math.round(minutes)}분`;
+      return `${Math.max(0, Math.round(minutes))}분`;
     }
 
     function roundUpToNearestTen(value) {
