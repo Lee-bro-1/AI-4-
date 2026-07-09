@@ -1303,7 +1303,7 @@
                     <button class="hint-toggle" type="button" id="congestionHintBtn" aria-expanded="false" aria-controls="congestionHintText">설명</button>
                   </div>
                     <div class="value" id="predictedPassengers">-</div>
-                    <div class="status-hint" id="congestionHintText" hidden>혼잡도 56%라면 정원 100명 기준으로 56명이 탄 상태, 즉 약 44석이 남아 있다고 보고 계산해요. 남은 시간이 길수록 직전 버스가 지나간 직후라 줄이 짧다고 보고, 남은 시간이 짧을수록 줄이 다시 많이 쌓였다고 봅니다.</div>
+                    <div class="status-hint" id="congestionHintText" hidden>혼잡도 56%라면 그 버스 정원의 56%만큼 사람이 탄 상태로 보고, 남은 좌석과 다음 버스까지 남은 시간을 같이 계산해요. 버스 타입이 잡히면 1층은 44명, 2층은 70명 기준으로 바뀌고, 타입이 없으면 기본 정원을 써요.</div>
                   </div>
                   <div class="status-box">
                   <div class="label">남은 시간</div>
@@ -1312,6 +1312,7 @@
                   <div class="status-box">
                   <div class="label">탑승 가능성</div>
                     <div class="value" id="boardingValue">-</div>
+                    <div class="status-hint" id="boardingFormulaText">-</div>
                   </div>
                   <div class="status-box">
                   <div class="label">예상 대기 시간</div>
@@ -1426,6 +1427,9 @@
     const BUS_POSITION_SEQ_OFFSET = 2;
     const BUS_TIMELINE_START_SEQ = 38;
     const BUS_TIMELINE_END_SEQ = 44;
+    const BUS_CAPACITY_DEFAULT = 100;
+    const BUS_CAPACITY_SINGLE_DECKER = 44;
+    const BUS_CAPACITY_DOUBLE_DECKER = 70;
     const STATION_NAME_OVERRIDES = new Map([
       [38, "대공원고가교(미정차)"],
       [39, "과천동행정복지센터"],
@@ -1444,6 +1448,7 @@
     const predictedPassengersEl = document.getElementById("predictedPassengers");
     const arrivalValueEl = document.getElementById("arrivalValue");
     const boardingValueEl = document.getElementById("boardingValue");
+    const boardingFormulaTextEl = document.getElementById("boardingFormulaText");
     const waitTimeValueEl = document.getElementById("waitTimeValue");
     const todayDateInputEl = document.getElementById("todayDateInput");
     const liveResetBtnEl = document.getElementById("liveResetBtn");
@@ -1560,6 +1565,55 @@
       if (Number.isFinite(bus.remainSeatCnt)) return `남은 좌석 ${bus.remainSeatCnt}`;
       if (Number.isFinite(bus.stateCd)) return `상태 ${bus.stateCd}`;
       return "상태 정보 없음";
+    }
+
+    function resolveBusCapacity(bus) {
+      const lowPlate = toNumber(bus?.lowPlate);
+      if (lowPlate === 2) {
+        return {
+          label: "2층 버스",
+          capacity: BUS_CAPACITY_DOUBLE_DECKER
+        };
+      }
+
+      if (lowPlate === 0) {
+        return {
+          label: "1층 버스",
+          capacity: BUS_CAPACITY_SINGLE_DECKER
+        };
+      }
+
+      const typeText = [
+        bus?.busType,
+        bus?.vehicleType,
+        bus?.deckType,
+        bus?.carType,
+        bus?.busClass,
+        bus?.typeName,
+        bus?.vehicleKind
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase())
+        .join(" ");
+
+      if (typeText.includes("2층") || typeText.includes("이층") || typeText.includes("double")) {
+        return {
+          label: "2층 버스",
+          capacity: BUS_CAPACITY_DOUBLE_DECKER
+        };
+      }
+
+      if (typeText.includes("1층") || typeText.includes("일층") || typeText.includes("single")) {
+        return {
+          label: "1층 버스",
+          capacity: BUS_CAPACITY_SINGLE_DECKER
+        };
+      }
+
+      return {
+        label: "기본 정원",
+        capacity: BUS_CAPACITY_DEFAULT
+      };
     }
 
     function formatBusRelation(bus) {
@@ -1750,6 +1804,19 @@
       return isWeekdayName(dayType) ? 10 : 20;
     }
 
+    function getCustomBoardingDefaults(dayType) {
+      return isWeekdayName(dayType)
+        ? { arrivalMinutes: 4, headwayMinutes: 6 }
+        : { arrivalMinutes: 10, headwayMinutes: 15 };
+    }
+
+    function isLiveSchedule(selectedDate, selectedTimeMinutes) {
+      const now = new Date();
+      const liveDate = formatDateLabel(now);
+      const liveTimeMinutes = now.getHours() * 60 + now.getMinutes();
+      return selectedDate === liveDate && selectedTimeMinutes === liveTimeMinutes;
+    }
+
     function clamp(value, min, max) {
       return Math.min(max, Math.max(min, value));
     }
@@ -1777,36 +1844,45 @@
       return getCurrentMinutes();
     }
 
-      function estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes) {
+      function estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes, busCapacity = BUS_CAPACITY_DEFAULT, options = {}) {
         if (!Number.isFinite(congestionRatio)) return null;
-        const headwayMinutes = getHeadwayMinutesForDayType(dayType);
+        const headwayMinutes = Number.isFinite(options.headwayMinutes) && options.headwayMinutes > 0
+          ? options.headwayMinutes
+          : getHeadwayMinutesForDayType(dayType);
+        const capacity = Number.isFinite(busCapacity) && busCapacity > 0 ? busCapacity : BUS_CAPACITY_DEFAULT;
         const demandRatio = clamp(congestionRatio, 0, 300);
-        const leftoverAfterBusRatio = Math.max(0, demandRatio - 100);
-        const elapsedRatio = Number.isFinite(arrivalMinutes)
-          ? clamp(1 - (arrivalMinutes / headwayMinutes), 0, 1)
+        const currentLoadCount = capacity * (demandRatio / 100);
+        const leftoverAfterBusCount = Math.max(0, currentLoadCount - capacity);
+        const effectiveArrivalMinutes = Number.isFinite(options.arrivalMinutes)
+          ? options.arrivalMinutes
+          : arrivalMinutes;
+        const elapsedRatio = Number.isFinite(effectiveArrivalMinutes)
+          ? clamp(1 - (effectiveArrivalMinutes / headwayMinutes), 0, 1)
           : 0.5;
-        const predictedQueueRatio = leftoverAfterBusRatio + ((demandRatio - leftoverAfterBusRatio) * elapsedRatio);
-        const boardingProbability = predictedQueueRatio <= 0
+        const predictedQueueCount = leftoverAfterBusCount + ((capacity - leftoverAfterBusCount) * elapsedRatio);
+        const boardingProbability = predictedQueueCount <= 0
           ? 100
-          : clamp((100 / predictedQueueRatio) * 100, 0, 100);
+          : clamp(100 * (1 - (predictedQueueCount / capacity)), 0, 100);
         const boardingPressure = 1 - (boardingProbability / 100);
-        const canBoardNextBus = boardingProbability >= 50;
+        const canBoardNextBus = predictedQueueCount < capacity;
 
         return {
           canBoardNextBus,
           boardingPressure,
           boardingProbability,
+          busCapacity: capacity,
           demandRatio,
-          leftoverAfterBusRatio,
+          currentLoadCount,
+          leftoverAfterBusCount,
           elapsedRatio,
-          predictedQueueRatio,
+          predictedQueueCount,
           headwayMinutes
         };
       }
 
-      function estimateWaitPlan(congestionRatio, dayType, arrivalMinutes) {
+      function estimateWaitPlan(congestionRatio, dayType, arrivalMinutes, busCapacity = BUS_CAPACITY_DEFAULT) {
         if (!Number.isFinite(congestionRatio) || !Number.isFinite(arrivalMinutes)) return null;
-        const boardingPlan = estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes);
+        const boardingPlan = estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes, busCapacity);
         if (!boardingPlan) return null;
         const remainingHeadwayRatio = clamp(arrivalMinutes / boardingPlan.headwayMinutes, 0, 1);
         const waitMinutes = arrivalMinutes <= 0
@@ -1869,6 +1945,7 @@
           stationName: item.stationName ?? item.stationNm ?? item.bsNm ?? item.stopName ?? item.station ?? null,
           remainSeatCnt: toNumber(item.remainSeatCnt),
           crowded: toNumber(item.crowded),
+          lowPlate: toNumber(item.lowPlate),
           stateCd: toNumber(item.stateCd),
           plateNo: item.plateNo ?? "-",
         }))
@@ -1886,6 +1963,7 @@
             stationName: item.stationName ?? item.stationNm ?? item.bsNm ?? item.stopName ?? item.station ?? null,
             remainSeatCnt: toNumber(item.remainSeatCnt),
             crowded: toNumber(item.crowded),
+            lowPlate: toNumber(item.lowPlate),
             stateCd: toNumber(item.stateCd),
             plateNo: item.plateNo ?? "-",
           }))
@@ -2068,6 +2146,19 @@
       return Number.isFinite(probability) ? `${label} (${probability}%)` : label;
     }
 
+    function formatBoardingFormula(plan) {
+      if (!plan) return "탑승 가능성 식: 데이터 없음";
+      const capacity = Number.isFinite(plan.busCapacity) ? plan.busCapacity : "-";
+      const busTypeLabel = plan.busTypeLabel ? ` (${plan.busTypeLabel})` : "";
+      const currentLoad = Number.isFinite(plan.currentLoadCount) ? plan.currentLoadCount.toFixed(1) : "-";
+      const leftover = Number.isFinite(plan.leftoverAfterBusCount) ? plan.leftoverAfterBusCount.toFixed(1) : "-";
+      const queue = Number.isFinite(plan.predictedQueueCount) ? plan.predictedQueueCount.toFixed(1) : "-";
+      const arrivalMinutes = Number.isFinite(plan.boardingArrivalMinutes) ? plan.boardingArrivalMinutes : "-";
+      const headwayMinutes = Number.isFinite(plan.boardingHeadwayMinutes) ? plan.boardingHeadwayMinutes : "-";
+      const probability = Number.isFinite(plan.boardingProbability) ? Math.round(plan.boardingProbability) : "-";
+      return `N=${capacity}${busTypeLabel}, L=${leftover}명, Q=${queue}명, 현재수요=${currentLoad}명, t=${arrivalMinutes}분, T=${headwayMinutes}분, P=100×(1−Q/N)=${probability}%`;
+    }
+
     function refreshCurrentMinutes() {
       if (todayDateInputEl && !todayDateInputEl.value) {
         todayDateInputEl.value = formatDateLabel(new Date());
@@ -2164,11 +2255,12 @@
       }
     }
 
-      function predict() {
-        const selectedDate = getSelectedDateValue();
-        const selectedTimeMinutes = getSelectedTimeMinutes();
-        const selectedHour = Math.floor(selectedTimeMinutes / 60);
-        const dayType = getDayTypeForDate(selectedDate);
+    function predict() {
+      const selectedDate = getSelectedDateValue();
+      const selectedTimeMinutes = getSelectedTimeMinutes();
+      const selectedHour = Math.floor(selectedTimeMinutes / 60);
+      const dayType = getDayTypeForDate(selectedDate);
+      const liveMode = isLiveSchedule(selectedDate, selectedTimeMinutes);
       const activeSources = getSourcesForDayType(dayType);
       const arrivalMinutes = parseArrivalMinutes();
       const normalizedValues = activeSources.map((source) => {
@@ -2177,13 +2269,29 @@
         return source.unit === "명" ? (value / 70) * 100 : value;
         }).filter((value) => Number.isFinite(value));
         const congestionRatio = normalizedValues.length > 0 ? normalizedValues.reduce((sum, value) => sum + value, 0) / normalizedValues.length : null;
-        const boardingPlan = estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes);
-        const displayWaitPlan = estimateWaitPlan(congestionRatio, dayType, arrivalMinutes);
+        const referenceBus = pickReferenceBus(lastTrackedBuses);
+        const busCapacityInfo = resolveBusCapacity(referenceBus);
+        const customBoardingDefaults = getCustomBoardingDefaults(dayType);
+        const boardingPlan = liveMode
+          ? estimateBoardingPlan(congestionRatio, dayType, arrivalMinutes, busCapacityInfo.capacity)
+          : estimateBoardingPlan(congestionRatio, dayType, customBoardingDefaults.arrivalMinutes, BUS_CAPACITY_DEFAULT, {
+              arrivalMinutes: customBoardingDefaults.arrivalMinutes,
+              headwayMinutes: customBoardingDefaults.headwayMinutes
+            });
+        if (boardingPlan) {
+          boardingPlan.busTypeLabel = liveMode ? busCapacityInfo.label : "기본 정원";
+          boardingPlan.boardingArrivalMinutes = liveMode ? arrivalMinutes : customBoardingDefaults.arrivalMinutes;
+          boardingPlan.boardingHeadwayMinutes = liveMode ? boardingPlan.headwayMinutes : customBoardingDefaults.headwayMinutes;
+        }
+        const displayWaitPlan = liveMode
+          ? estimateWaitPlan(congestionRatio, dayType, arrivalMinutes, busCapacityInfo.capacity)
+          : null;
 
       predictedPassengersEl.textContent = congestionRatio === null ? "데이터 없음" : `${formatNumber(congestionRatio)}%`;
-      arrivalValueEl.textContent = formatArrivalMinutes(arrivalMinutes);
+      arrivalValueEl.textContent = liveMode ? formatArrivalMinutes(arrivalMinutes) : "";
       boardingValueEl.textContent = formatBoardingValue(boardingPlan);
-      waitTimeValueEl.textContent = displayWaitPlan ? formatWaitMinutes(displayWaitPlan.waitMinutes) : "데이터 없음";
+      if (boardingFormulaTextEl) boardingFormulaTextEl.textContent = formatBoardingFormula(boardingPlan);
+      waitTimeValueEl.textContent = liveMode && displayWaitPlan ? formatWaitMinutes(displayWaitPlan.waitMinutes) : "";
       if (todayDateInputEl && !todayDateInputEl.value) todayDateInputEl.value = selectedDate;
       if (currentMinutesInput && !currentMinutesInput.value) currentMinutesInput.value = formatCurrentTime(selectedTimeMinutes);
     }
