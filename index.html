@@ -556,6 +556,10 @@
       background: var(--red);
     }
 
+    .bus-map-node.next .bus-map-marker {
+      background: #f59e0b;
+    }
+
     .bus-map-node.target .bus-map-marker {
       background: var(--green-accent);
     }
@@ -1142,7 +1146,7 @@
 
             <aside class="hero-card">
               <h2>지금 타도 되는지 바로 보여줍니다.</h2>
-              <p>현재와 다음 버스 위치, 남은 시간을 한눈에 확인하세요.</p>
+              <p>7800의 실시간 위치를 한눈에 확인하세요.</p>
               <div class="route-box">
                 <div class="route-line">
                   <strong>노선</strong>
@@ -1215,62 +1219,17 @@
             <div class="bus-map-header">
               <div>
                 <h2 class="section-title">버스 위치</h2>
-                <p class="helper">현재 버스와 다음 버스가 어디쯤인지 바로 보여줍니다.</p>
               </div>
               <div class="bus-map-meta">
-                <span class="badge low" id="busMapStatus">대기 중</span>
-                <span class="bus-map-note" id="busMapUpdated">대기 중</span>
                 <button class="pill-btn outline-dark bus-map-refresh" type="button" id="busRefreshBtn">지금 갱신</button>
               </div>
             </div>
-            <div class="bus-map-route" id="busMapRoute" aria-label="노선 구조"></div>
-
-            <div class="bus-map-layout">
-              <div class="bus-map-track" id="busMapTrack" aria-label="버스 위치 타임라인"></div>
-
-              <div class="bus-map-summary">
-                <div class="bus-map-summary-box">
-                  <div class="bus-map-summary-title">현재 / 다음 버스</div>
-                  <div class="bus-map-summary-value" id="busMapPrimary">위치 확인 중</div>
-                </div>
-                <ul class="bus-map-summary-list" id="busMapList">
-                  <li><span>노선</span><strong>7800</strong></li>
-                  <li><span>기준</span><strong>사당역9번출구앞</strong></li>
-                  <li><span>상태</span><strong>대기 중</strong></li>
-                </ul>
-              </div>
-            </div>
+            <div class="bus-map-track" id="busMapTrack" aria-label="7800 버스 위치 그림"></div>
           </div>
         </div>
       </section>
 
-      <section class="section mobile-route-panel" id="routeInfoMobile">
-        <div class="container">
-          <aside class="hero-card">
-            <h2>노선 한눈에</h2>
-            <p>노선 기준 정보도 같이 확인할 수 있습니다.</p>
-            <div class="route-box">
-              <div class="route-line">
-                <strong>노선</strong>
-                <span>7800번 버스</span>
-              </div>
-              <div class="route-line">
-                <strong>구조</strong>
-                <span>남태령역(중) → 사당역(중) → 회차 → 사당역사거리(미정차) → 사당역9번출구앞 → 남현동(미정차)</span>
-              </div>
-              <div class="route-line">
-                <strong>대상</strong>
-                <span>사당역9번출구앞</span>
-              </div>
-              <div class="route-line">
-                <strong>배차</strong>
-                <span>평일 10분 · 주말 20분</span>
-              </div>
-            </div>
-          </aside>
-        </div>
-      </section>
-    </main>
+  </main>
   </div>
 
   <nav class="mobile-tabbar" aria-label="모바일 하단 메뉴">
@@ -1648,11 +1607,6 @@
     const todayTypeLabelEl = document.getElementById("todayTypeLabel");
     const statusTimeLabelEl = document.getElementById("statusTimeLabel");
     const busMapTrackEl = document.getElementById("busMapTrack");
-    const busMapRouteEl = document.getElementById("busMapRoute");
-    const busMapStatusEl = document.getElementById("busMapStatus");
-    const busMapUpdatedEl = document.getElementById("busMapUpdated");
-    const busMapPrimaryEl = document.getElementById("busMapPrimary");
-    const busMapListEl = document.getElementById("busMapList");
     const busRefreshBtn = document.getElementById("busRefreshBtn");
     let lastBusUpdatedAt = null;
     let busRefreshPromise = null;
@@ -1776,40 +1730,25 @@
         .sort((a, b) => a - b);
     }
 
-    function renderRouteFlow(currentBus, nextBus) {
-      if (!busMapRouteEl) return;
-
-      const currentLabel = currentBus ? formatBusStationName(currentBus) : null;
-      const nextLabel = nextBus ? formatBusStationName(nextBus) : null;
-
-      busMapRouteEl.innerHTML = ROUTE_FLOW.flatMap((step, index) => {
-        const classes = ["bus-map-route-item", step.state];
-        if (currentLabel && step.label === currentLabel) {
-          classes.push("active");
-        }
-        if (nextLabel && step.label === nextLabel) {
-          classes.push("next");
-        }
-        const node = `<span class="${classes.join(" ")}">${step.label}</span>`;
-        if (index === ROUTE_FLOW.length - 1) return [node];
-        return [node, `<span class="bus-map-route-arrow" aria-hidden="true">→</span>`];
-      }).join("");
-    }
-
     function renderBusTimeline(currentBus, nextBus) {
       if (!busMapTrackEl) return;
 
       const currentSeq = Number.isFinite(currentBus?.stationSeq) ? Number(currentBus.stationSeq) : null;
       const nextSeq = Number.isFinite(nextBus?.stationSeq) ? Number(nextBus.stationSeq) : null;
       const targetSeq = Number(TARGET_STATION_SEQ);
+      const formatBusLabel = (bus) => {
+        const stationName = formatBusStationName(bus);
+        return stationName && stationName !== "정류장 정보 없음"
+          ? `${BUS_ROUTE_NAME}(${stationName})`
+          : BUS_ROUTE_NAME;
+      };
 
       if (!Number.isFinite(currentSeq) && !Number.isFinite(nextSeq)) {
         busMapTrackEl.innerHTML = `
           <div class="bus-map-node gap">
             <div class="bus-map-marker">?</div>
             <div class="bus-map-stop">
-              <div class="bus-map-stop-title">실시간 버스 위치를 기다리는 중</div>
-              <div class="bus-map-stop-sub">현재 버스와 다음 버스가 잡히면 여기에 함께 표시됩니다.</div>
+              <div class="bus-map-stop-title">${BUS_ROUTE_NAME}</div>
             </div>
           </div>
         `;
@@ -1841,7 +1780,6 @@
               <div class="bus-map-marker">·</div>
               <div class="bus-map-stop">
                 <div class="bus-map-stop-title">...</div>
-                <div class="bus-map-stop-sub">중간 정류장 생략</div>
               </div>
             </div>
           `);
@@ -1851,29 +1789,21 @@
         const isNext = nextSeq === seq;
         const isTarget = targetSeq === seq;
         const stopName = isCurrent ? formatBusStationName(currentBus) : isNext ? formatBusStationName(nextBus) : getStationNameBySeq(seq);
-        const busLabel = isCurrent ? "현재 버스" : isNext ? "다음 버스" : isTarget ? "목표 정류장" : stopName;
-        const stopClass = isCurrent ? "current" : isNext || isTarget ? "target" : "";
-        const markerIcon = isCurrent || isNext ? "🚌" : isTarget ? "📍" : "•";
-        const stationDetail = isCurrent ? formatBusStationName(currentBus) : isNext ? formatBusStationName(nextBus) : stopName;
-        const relation = isCurrent
-          ? formatBusRelation(currentBus)
+        const busLabel = isCurrent
+          ? formatBusLabel(currentBus)
           : isNext
-            ? `다음 버스 · ${formatBusRelation(nextBus)}`
+            ? formatBusLabel(nextBus)
             : isTarget
-              ? "도착 기준 정류장"
-              : seq < targetSeq
-                ? "도착 전 구간"
-                : "도착 후 구간";
+              ? `${BUS_ROUTE_NAME}(${stopName})`
+              : stopName;
+        const stopClass = isCurrent ? "current" : isNext ? "next" : isTarget ? "target" : "";
+        const markerIcon = isCurrent || isNext ? "🚌" : isTarget ? "📍" : "•";
 
         nodes.push(`
           <div class="bus-map-node ${stopClass}">
             <div class="bus-map-marker">${markerIcon}</div>
             <div class="bus-map-stop ${stopClass}">
               <div class="bus-map-stop-title">${busLabel}</div>
-              <div class="bus-map-stop-sub">
-                <span>${stationDetail}</span>
-                <span class="bus-map-pill">${relation}</span>
-              </div>
             </div>
           </div>
         `);
@@ -1883,55 +1813,7 @@
     }
 
     function renderBusMap(currentBus, nextBus) {
-      if (!busMapStatusEl || !busMapUpdatedEl || !busMapPrimaryEl || !busMapListEl) return;
-
-      renderRouteFlow(currentBus, nextBus);
       renderBusTimeline(currentBus, nextBus);
-
-      const hasCurrent = Boolean(currentBus);
-      const hasNext = Boolean(nextBus);
-      const statusLabel = hasCurrent && hasNext ? "2대 실시간" : hasCurrent || hasNext ? "실시간" : "대기 중";
-      const statusClass = hasCurrent || hasNext ? "badge medium" : "badge low";
-      busMapStatusEl.className = statusClass;
-      busMapStatusEl.textContent = statusLabel;
-
-      const currentLabel = hasCurrent
-        ? `현재 버스(${formatBusStationName(currentBus)}) · ${Number.isFinite(currentBus.stationSeq) ? `#${currentBus.stationSeq}` : "-"} · ${formatBusRelation(currentBus)}`
-        : "현재 버스 정보 없음";
-      const nextLabel = hasNext
-        ? `다음 버스(${formatBusStationName(nextBus)}) · ${Number.isFinite(nextBus.stationSeq) ? `#${nextBus.stationSeq}` : "-"} · ${formatBusRelation(nextBus)}`
-        : "다음 버스 정보 없음";
-
-      busMapPrimaryEl.innerHTML = `
-        <div class="bus-map-bus-card">
-          <span>현재 버스</span>
-          <strong>${currentLabel}</strong>
-          <small>${hasCurrent && currentBus.plateNo ? currentBus.plateNo : "차량 정보 대기 중"}</small>
-        </div>
-        <div class="bus-map-bus-card next">
-          <span>다음 버스</span>
-          <strong>${nextLabel}</strong>
-          <small>${hasNext && nextBus.plateNo ? nextBus.plateNo : "차량 정보 대기 중"}</small>
-        </div>
-      `;
-
-      busMapUpdatedEl.textContent = formatBusUpdatedAt(lastBusUpdatedAt);
-
-      const currentStationName = hasCurrent ? formatBusStationName(currentBus) : "-";
-      const currentSeqLabel = hasCurrent && Number.isFinite(currentBus?.stationSeq) ? `#${currentBus.stationSeq}` : "-";
-      const currentPlate = hasCurrent ? currentBus?.plateNo ?? "-" : "-";
-      const currentCrowdedLabel = hasCurrent ? formatBusCrowding(currentBus) : "정보 없음";
-      const nextStationName = hasNext ? formatBusStationName(nextBus) : "-";
-      const nextSeqLabel = hasNext && Number.isFinite(nextBus?.stationSeq) ? `#${nextBus.stationSeq}` : "-";
-      const nextPlate = hasNext ? nextBus?.plateNo ?? "-" : "-";
-      const nextCrowdedLabel = hasNext ? formatBusCrowding(nextBus) : "정보 없음";
-
-      busMapListEl.innerHTML = `
-        <li><span>노선</span><strong>${BUS_ROUTE_NAME}</strong></li>
-        <li><span>현재 버스</span><strong>현재 버스(${currentStationName}) ${currentSeqLabel} / ${currentPlate}</strong></li>
-        <li><span>다음 버스</span><strong>다음 버스(${nextStationName}) ${nextSeqLabel} / ${nextPlate}</strong></li>
-        <li><span>상태</span><strong>${currentCrowdedLabel}${hasNext ? ` · ${nextCrowdedLabel}` : ""}</strong></li>
-      `;
     }
 
     function getDayTypeForDate(dateValue) {
@@ -2080,11 +1962,6 @@
         if (busRefreshBtn) {
           busRefreshBtn.disabled = true;
           busRefreshBtn.textContent = "갱신 중";
-        }
-
-        if (busMapStatusEl) {
-          busMapStatusEl.textContent = "갱신 중";
-          busMapStatusEl.className = "badge medium";
         }
 
         try {
